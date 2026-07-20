@@ -1,0 +1,29 @@
+name: Position History Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture diagnostics
+        run: |
+          npm run lint > lint.txt 2>&1 || true
+          npx prettier --write packages/core/src/position-history.ts packages/core/src/position-history.test.ts apps/worker/src/position-history.ts apps/worker/src/position-history.test.ts
+          git diff -- . ':!.github/workflows/position-history-diagnostic.yml' > prettier.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: position-history-diagnostics
+          path: |
+            lint.txt
+            prettier.patch
