@@ -95,7 +95,8 @@ export function buildPositionHistoryReport(config: PositionFeeShareReportConfig)
       limit: config.limit,
     })
     if (swapResult.truncated) warnings.push('Swap evidence was truncated by the configured row limit.')
-    if (swapResult.swaps.length === 0) warnings.push('No swaps exist in the selected replay window; fee scenarios are zero.')
+    if (swapResult.swaps.length === 0)
+      warnings.push('No swaps exist in the selected replay window; fee scenarios are zero.')
 
     const scenarios = (['lower', 'endpoint', 'upper'] as const).map((name) => ({
       name,
@@ -146,7 +147,7 @@ function cumulativeHistoryObservations(
   poolAddress: `0x${string}`,
 ): PositionHistoryObservationInput[] {
   let swapCount = 0
-  return observations.map((observation, index) => {
+  return observations.map((observation) => {
     while (swapCount < swaps.length && swaps[swapCount]!.observedAt <= observation.block.observedAt) swapCount += 1
     let fees0 = 0n
     let fees1 = 0n
@@ -173,8 +174,18 @@ function cumulativeHistoryObservations(
       })
       const token0 = estimate.token0
       const token1 = estimate.token1
-      fees0 = scenario === 'lower' ? token0.lowerBoundBaseUnits : scenario === 'endpoint' ? token0.endpointEstimateBaseUnits : token0.upperBoundBaseUnits
-      fees1 = scenario === 'lower' ? token1.lowerBoundBaseUnits : scenario === 'endpoint' ? token1.endpointEstimateBaseUnits : token1.upperBoundBaseUnits
+      fees0 =
+        scenario === 'lower'
+          ? token0.lowerBoundBaseUnits
+          : scenario === 'endpoint'
+            ? token0.endpointEstimateBaseUnits
+            : token0.upperBoundBaseUnits
+      fees1 =
+        scenario === 'lower'
+          ? token1.lowerBoundBaseUnits
+          : scenario === 'endpoint'
+            ? token1.endpointEstimateBaseUnits
+            : token1.upperBoundBaseUnits
     }
     return {
       blockNumber: observation.block.blockNumber,
