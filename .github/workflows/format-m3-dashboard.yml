@@ -36,3 +36,4 @@ jobs:
           git add apps/worker/src/monitor-health.ts apps/worker/src/monitor-health.test.ts docs/MONITORING.md .github/workflows/format-m3-dashboard.yml
           git commit -m "style(worker): format dashboard health snapshot"
           git push
+# trigger
