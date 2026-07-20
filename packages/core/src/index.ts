@@ -39,6 +39,13 @@ export type {
   PoolHistoryOptions,
   PoolHistoryRiskFlag,
 } from './pool-history.js'
+export { estimatePositionFeeShare } from './position-fee-share.js'
+export type {
+  PositionFeeShareAnalysis,
+  PositionFeeShareInput,
+  PositionFeeShareSwapInput,
+  PositionFeeTokenEstimate,
+} from './position-fee-share.js'
 export { analyzeSwapEvidence } from './swap-evidence.js'
 export type {
   NominalFeeEvidence,
