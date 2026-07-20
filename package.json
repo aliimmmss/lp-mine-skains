@@ -2,17 +2,21 @@
   "name": "lp-mine-skains",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "npm@10",
   "engines": {
     "node": ">=22.0.0"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "npm run --workspaces --if-present build",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -b --pretty false",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "prettier --write \"**/*.{ts,mjs,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,mjs,yml,yaml}\""
   },
   "devDependencies": {
     "@eslint/js": "9.31.0",

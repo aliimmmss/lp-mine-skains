@@ -1,0 +1,116 @@
+import type { SourceStamped, TokenRef } from '@lp-mine/core'
+import { getAddress, zeroAddress, type Address } from 'viem'
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3, isSupportedFeeTier, type SupportedFeeTier } from './registry.js'
+
+export { createViemPoolCreatedEventSource, normalizePoolCreatedLog } from './event-source.js'
+export { createRobinhoodPublicClient, createViemReadClient, robinhoodChain } from './live-client.js'
+export type { LiveClientOptions, PoolCreatedLog } from './live-client.js'
+export { syncPoolCreatedEvents } from './indexer.js'
+export type {
+  BlockHeader,
+  CheckpointStore,
+  IndexCheckpoint,
+  IndexedPoolCreated,
+  PoolCreatedEventSource,
+  PoolEventSink,
+  SyncOptions,
+  SyncResult,
+} from './indexer.js'
+export { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3, SUPPORTED_FEE_TIERS } from './registry.js'
+export type { SupportedFeeTier } from './registry.js'
+
+export type PoolIdentity = {
+  poolAddress: Address
+  token0: TokenRef
+  token1: TokenRef
+  feeTier: SupportedFeeTier
+}
+
+export type PoolState = {
+  sqrtPriceX96: bigint
+  tick: number
+  tickSpacing: number
+  activeLiquidity: bigint
+}
+
+export type PoolSnapshot = SourceStamped<PoolIdentity & PoolState>
+
+export interface UniswapV3ReadClient {
+  getPool(tokenA: Address, tokenB: Address, feeTier: number): Promise<Address>
+  readPoolState(poolAddress: Address): Promise<PoolState>
+  readToken(tokenAddress: Address): Promise<Pick<TokenRef, 'symbol' | 'decimals'>>
+  getBlock(): Promise<{ blockNumber: bigint; timestamp: bigint }>
+}
+
+export class PoolVerificationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PoolVerificationError'
+  }
+}
+
+export async function readVerifiedPoolSnapshot(args: {
+  client: UniswapV3ReadClient
+  poolAddress: Address
+  token0: Address
+  token1: Address
+  feeTier: number
+}): Promise<PoolSnapshot> {
+  if (!isSupportedFeeTier(args.feeTier)) {
+    throw new PoolVerificationError(`Unsupported fee tier: ${args.feeTier}`)
+  }
+
+  const poolAddress = getAddress(args.poolAddress)
+  const token0Address = getAddress(args.token0)
+  const token1Address = getAddress(args.token1)
+  const officialPool = getAddress(await args.client.getPool(token0Address, token1Address, args.feeTier))
+
+  if (officialPool === zeroAddress || officialPool !== poolAddress) {
+    throw new PoolVerificationError(
+      `Pool ${poolAddress} is not the official factory result for the supplied pair and fee tier`,
+    )
+  }
+
+  const [state, token0Meta, token1Meta, block] = await Promise.all([
+    args.client.readPoolState(poolAddress),
+    args.client.readToken(token0Address),
+    args.client.readToken(token1Address),
+    args.client.getBlock(),
+  ])
+
+  if (state.sqrtPriceX96 <= 0n || state.activeLiquidity < 0n || state.tickSpacing <= 0) {
+    throw new PoolVerificationError('Pool returned invalid state')
+  }
+
+  const observedAt = new Date(Number(block.timestamp) * 1_000)
+  if (Number.isNaN(observedAt.getTime())) {
+    throw new PoolVerificationError('Block timestamp is invalid')
+  }
+
+  return {
+    value: {
+      poolAddress,
+      token0: {
+        chainId: ROBINHOOD_CHAIN_ID,
+        address: token0Address,
+        symbol: token0Meta.symbol,
+        decimals: token0Meta.decimals,
+      },
+      token1: {
+        chainId: ROBINHOOD_CHAIN_ID,
+        address: token1Address,
+        symbol: token1Meta.symbol,
+        decimals: token1Meta.decimals,
+      },
+      feeTier: args.feeTier,
+      ...state,
+    },
+    block: {
+      chainId: ROBINHOOD_UNISWAP_V3.chainId,
+      blockNumber: block.blockNumber,
+      observedAt,
+    },
+    quality: 'complete',
+    warnings: [],
+  }
+}

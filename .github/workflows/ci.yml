@@ -5,20 +5,31 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   verify:
+    name: ${{ matrix.check }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [format, lint, typecheck, test, build]
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.13.1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+          cache: npm
+      - run: npm ci
+      - if: matrix.check == 'format'
+        run: npm run format:check
+      - if: matrix.check == 'lint'
+        run: npm run lint
+      - if: matrix.check == 'typecheck'
+        run: npm run typecheck
+      - if: matrix.check == 'test'
+        run: npm test
+      - if: matrix.check == 'build'
+        run: npm run build

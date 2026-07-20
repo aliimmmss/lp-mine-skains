@@ -19,4 +19,10 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': 'error',
     },
   },
+  {
+    files: ['**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
 )
