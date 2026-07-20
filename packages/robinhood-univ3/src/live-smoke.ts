@@ -62,7 +62,7 @@ export async function runLiveSmoke(rpcUrl = process.env.ROBINHOOD_RPC_URL): Prom
       {
         mode: 'read-only',
         chainId,
-        rpcUrl: rpcUrl ?? ROBINHOOD_UNISWAP_V3.publicRpcUrl,
+        rpcSource: rpcUrl ? 'configured' : 'public-default',
         contracts,
         pair: {
           tokenA: ROBINHOOD_UNISWAP_V3.wrappedNative,
