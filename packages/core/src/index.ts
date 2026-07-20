@@ -64,11 +64,16 @@ export type {
   PositionHistoryObservationInput,
   PositionHistoryPoint,
 } from './position-history.js'
-export { estimatePositionFeeShare } from './position-fee-share.js'
+export { estimatePositionFeeShare, estimatePositionFeeShareTimeline } from './position-fee-share.js'
 export type {
   PositionFeeShareAnalysis,
+  PositionFeeShareCheckpointInput,
   PositionFeeShareInput,
+  PositionFeeShareParameters,
   PositionFeeShareSwapInput,
+  PositionFeeShareTimeline,
+  PositionFeeShareTimelineInput,
+  PositionFeeShareTimelinePoint,
   PositionFeeTokenEstimate,
 } from './position-fee-share.js'
 export { analyzeSwapEvidence } from './swap-evidence.js'

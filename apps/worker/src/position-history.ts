@@ -1,6 +1,7 @@
 import {
   analyzePositionHistory,
-  estimatePositionFeeShare,
+  estimatePositionFeeShareTimeline,
+  type PositionFeeShareAnalysis,
   type PositionHistoryAnalysis,
   type PositionHistoryObservationInput,
 } from '@lp-mine/core'
@@ -95,8 +96,31 @@ export function buildPositionHistoryReport(config: PositionFeeShareReportConfig)
       limit: config.limit,
     })
     if (swapResult.truncated) warnings.push('Swap evidence was truncated by the configured row limit.')
-    if (swapResult.swaps.length === 0)
+    if (swapResult.swaps.length === 0) {
       warnings.push('No swaps exist in the selected replay window; fee scenarios are zero.')
+    }
+
+    const timeline = estimatePositionFeeShareTimeline({
+      poolAddress: pool.poolAddress,
+      feeTier: config.feeTier,
+      tickLower: config.tickLower,
+      tickUpper: config.tickUpper,
+      positionLiquidity: config.positionLiquidity,
+      token0Decimals: entry.value.token0.decimals,
+      token1Decimals: entry.value.token1.decimals,
+      initialTick: entry.value.tick,
+      entryBlockNumber: entry.block.blockNumber,
+      checkpoints: selectedObservations.map((observation) => ({
+        blockNumber: observation.block.blockNumber,
+        observedAt: observation.block.observedAt,
+      })),
+      swaps: swapResult.swaps.map(toFeeShareSwap),
+    })
+    if (timeline.excludedAtOrBeforeEntrySwapCount > 0) {
+      warnings.push(
+        `${timeline.excludedAtOrBeforeEntrySwapCount} swap rows at or before the entry block were excluded from fee accrual.`,
+      )
+    }
 
     const scenarios = (['lower', 'endpoint', 'upper'] as const).map((name) => ({
       name,
@@ -106,13 +130,7 @@ export function buildPositionHistoryReport(config: PositionFeeShareReportConfig)
         tickLower: config.tickLower,
         tickUpper: config.tickUpper,
         liquidity: config.positionLiquidity,
-        observations: cumulativeHistoryObservations(
-          selectedObservations,
-          swapResult.swaps,
-          name,
-          config,
-          pool.poolAddress,
-        ),
+        observations: cumulativeHistoryObservations(selectedObservations, timeline.checkpoints, name),
       }),
     }))
 
@@ -131,7 +149,7 @@ export function buildPositionHistoryReport(config: PositionFeeShareReportConfig)
       scenarios,
       warnings: [...new Set(warnings)],
       disclaimer:
-        'This discrete historical replay combines stored pool observations with bounded fee-share scenarios. It is not realized profit and excludes intra-observation paths, gas, slippage, rebalancing costs, incentives, taxes, and execution risk.',
+        'This discrete historical replay combines stored pool observations with one-pass bounded fee-share scenarios. It is not realized profit and excludes intra-observation paths, gas, slippage, rebalancing costs, incentives, taxes, and execution risk.',
     }
   } finally {
     observationsStore.close()
@@ -139,61 +157,55 @@ export function buildPositionHistoryReport(config: PositionFeeShareReportConfig)
   }
 }
 
+function toFeeShareSwap(swap: TimestampedIndexedSwap) {
+  return {
+    blockNumber: swap.blockNumber,
+    transactionHash: swap.transactionHash,
+    logIndex: swap.logIndex,
+    observedAt: swap.observedAt,
+    amount0: swap.amount0,
+    amount1: swap.amount1,
+    tickAfter: swap.tick,
+    activeLiquidityAfter: swap.activeLiquidity,
+  }
+}
+
+function scenarioFees(
+  analysis: PositionFeeShareAnalysis,
+  scenario: 'lower' | 'endpoint' | 'upper',
+): { amount0: bigint; amount1: bigint } {
+  return {
+    amount0:
+      scenario === 'lower'
+        ? analysis.token0.lowerBoundBaseUnits
+        : scenario === 'endpoint'
+          ? analysis.token0.endpointEstimateBaseUnits
+          : analysis.token0.upperBoundBaseUnits,
+    amount1:
+      scenario === 'lower'
+        ? analysis.token1.lowerBoundBaseUnits
+        : scenario === 'endpoint'
+          ? analysis.token1.endpointEstimateBaseUnits
+          : analysis.token1.upperBoundBaseUnits,
+  }
+}
+
 function cumulativeHistoryObservations(
   observations: readonly PoolSnapshot[],
-  swaps: readonly TimestampedIndexedSwap[],
+  checkpoints: readonly { analysis: PositionFeeShareAnalysis }[],
   scenario: 'lower' | 'endpoint' | 'upper',
-  config: PositionFeeShareReportConfig,
-  poolAddress: `0x${string}`,
 ): PositionHistoryObservationInput[] {
-  let swapCount = 0
-  return observations.map((observation) => {
-    while (swapCount < swaps.length && swaps[swapCount]!.observedAt <= observation.block.observedAt) swapCount += 1
-    let fees0 = 0n
-    let fees1 = 0n
-    if (swapCount > 0) {
-      const estimate = estimatePositionFeeShare({
-        poolAddress,
-        feeTier: config.feeTier,
-        tickLower: config.tickLower,
-        tickUpper: config.tickUpper,
-        positionLiquidity: config.positionLiquidity,
-        token0Decimals: observation.value.token0.decimals,
-        token1Decimals: observation.value.token1.decimals,
-        initialTick: observations[0]!.value.tick,
-        swaps: swaps.slice(0, swapCount).map((swap) => ({
-          blockNumber: swap.blockNumber,
-          transactionHash: swap.transactionHash,
-          logIndex: swap.logIndex,
-          observedAt: swap.observedAt,
-          amount0: swap.amount0,
-          amount1: swap.amount1,
-          tickAfter: swap.tick,
-          activeLiquidityAfter: swap.activeLiquidity,
-        })),
-      })
-      const token0 = estimate.token0
-      const token1 = estimate.token1
-      fees0 =
-        scenario === 'lower'
-          ? token0.lowerBoundBaseUnits
-          : scenario === 'endpoint'
-            ? token0.endpointEstimateBaseUnits
-            : token0.upperBoundBaseUnits
-      fees1 =
-        scenario === 'lower'
-          ? token1.lowerBoundBaseUnits
-          : scenario === 'endpoint'
-            ? token1.endpointEstimateBaseUnits
-            : token1.upperBoundBaseUnits
-    }
+  if (observations.length !== checkpoints.length)
+    throw new Error('Fee timeline checkpoint count does not match observations')
+  return observations.map((observation, index) => {
+    const fees = scenarioFees(checkpoints[index]!.analysis, scenario)
     return {
       blockNumber: observation.block.blockNumber,
       observedAt: observation.block.observedAt,
       sqrtPriceX96: observation.value.sqrtPriceX96,
       tick: observation.value.tick,
-      cumulativeFees0: fees0,
-      cumulativeFees1: fees1,
+      cumulativeFees0: fees.amount0,
+      cumulativeFees1: fees.amount1,
     }
   })
 }
