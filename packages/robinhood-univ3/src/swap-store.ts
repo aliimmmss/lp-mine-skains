@@ -49,11 +49,13 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
 
   async load(): Promise<IndexCheckpoint | null> {
     const row = this.#database
-      .prepare(`
+      .prepare(
+        `
         SELECT next_block, last_block_number, last_block_hash, last_parent_hash
         FROM swap_index_checkpoint
         WHERE singleton = 1
-      `)
+      `,
+      )
       .get() as
       | {
           next_block: string
@@ -80,7 +82,8 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
 
   async save(checkpoint: IndexCheckpoint): Promise<void> {
     this.#database
-      .prepare(`
+      .prepare(
+        `
         INSERT INTO swap_index_checkpoint (
           singleton, next_block, last_block_number, last_block_hash, last_parent_hash
         ) VALUES (1, ?, ?, ?, ?)
@@ -89,7 +92,8 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
           last_block_number = excluded.last_block_number,
           last_block_hash = excluded.last_block_hash,
           last_parent_hash = excluded.last_parent_hash
-      `)
+      `,
+      )
       .run(
         checkpoint.nextBlock.toString(),
         checkpoint.lastProcessedBlock?.number.toString() ?? null,
@@ -169,7 +173,8 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
       throw new RangeError('Swap query limit must be an integer between 1 and 10000')
     }
     const rows = this.#database
-      .prepare(`
+      .prepare(
+        `
         SELECT block_number, block_hash, transaction_hash, log_index,
                pool_address, sender, recipient, amount0, amount1,
                sqrt_price_x96, active_liquidity, tick
@@ -177,7 +182,8 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
         WHERE pool_address = ?
         ORDER BY CAST(block_number AS INTEGER), log_index
         LIMIT ?
-      `)
+      `,
+      )
       .all(poolAddress, limit) as Array<{
       block_number: string
       block_hash: `0x${string}`
