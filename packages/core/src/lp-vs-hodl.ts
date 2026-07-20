@@ -120,10 +120,7 @@ export function amountsForLiquidity(
 
   if (sqrtPriceX96 <= sqrtPriceLowerX96) {
     return {
-      amount0:
-        (liquidity * (sqrtPriceUpperX96 - sqrtPriceLowerX96) * Q96) /
-        sqrtPriceUpperX96 /
-        sqrtPriceLowerX96,
+      amount0: (liquidity * (sqrtPriceUpperX96 - sqrtPriceLowerX96) * Q96) / sqrtPriceUpperX96 / sqrtPriceLowerX96,
       amount1: 0n,
     }
   }
