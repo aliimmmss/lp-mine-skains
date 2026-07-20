@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type {
-  BlockHeader,
-  CheckpointStore,
-  IndexCheckpoint,
-  PoolCreatedEventSource,
-  PoolEventSink,
-} from './indexer.js'
+import type { BlockHeader, CheckpointStore, IndexCheckpoint, PoolCreatedEventSource, PoolEventSink } from './indexer.js'
 import { syncPoolCreatedEvents } from './indexer.js'
 
 const hash = (value: number): `0x${string}` => `0x${value.toString(16).padStart(64, '0')}`

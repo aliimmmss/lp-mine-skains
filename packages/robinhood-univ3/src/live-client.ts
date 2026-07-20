@@ -1,13 +1,5 @@
 import type { TokenRef } from '@lp-mine/core'
-import {
-  createPublicClient,
-  defineChain,
-  getAddress,
-  http,
-  parseAbi,
-  type Address,
-  type PublicClient,
-} from 'viem'
+import { createPublicClient, defineChain, getAddress, http, parseAbi, type Address, type PublicClient } from 'viem'
 import type { PoolState, UniswapV3ReadClient } from './index.js'
 import { ROBINHOOD_UNISWAP_V3 } from './registry.js'
 
@@ -21,10 +13,7 @@ const poolAbi = parseAbi([
   'function liquidity() view returns (uint128)',
 ])
 
-const tokenAbi = parseAbi([
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-])
+const tokenAbi = parseAbi(['function symbol() view returns (string)', 'function decimals() view returns (uint8)'])
 
 export const robinhoodChain = defineChain({
   id: ROBINHOOD_UNISWAP_V3.chainId,

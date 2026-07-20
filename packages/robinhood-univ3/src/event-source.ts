@@ -1,24 +1,12 @@
-import {
-  getAddress,
-  parseAbiItem,
-  type Address,
-  type Hex,
-  type PublicClient,
-} from 'viem'
-import type {
-  BlockHeader,
-  IndexedPoolCreated,
-  PoolCreatedEventSource,
-} from './indexer.js'
+import { getAddress, parseAbiItem, type Address, type Hex, type PublicClient } from 'viem'
+import type { BlockHeader, IndexedPoolCreated, PoolCreatedEventSource } from './indexer.js'
 import { ROBINHOOD_UNISWAP_V3 } from './registry.js'
 
 const poolCreatedEvent = parseAbiItem(
   'event PoolCreated(address indexed token0, address indexed token1, uint24 indexed fee, int24 tickSpacing, address pool)',
 )
 
-export function createViemPoolCreatedEventSource(
-  publicClient: PublicClient,
-): PoolCreatedEventSource {
+export function createViemPoolCreatedEventSource(publicClient: PublicClient): PoolCreatedEventSource {
   return {
     async getHeadBlockNumber() {
       return publicClient.getBlockNumber()

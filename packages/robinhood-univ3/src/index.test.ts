@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getAddress, zeroAddress, type Address } from 'viem'
-import {
-  PoolVerificationError,
-  readVerifiedPoolSnapshot,
-  type PoolState,
-  type UniswapV3ReadClient,
-} from './index.js'
+import { PoolVerificationError, readVerifiedPoolSnapshot, type PoolState, type UniswapV3ReadClient } from './index.js'
 
 const pool = getAddress('0x1111111111111111111111111111111111111111')
 const token0 = getAddress('0x2222222222222222222222222222222222222222')
@@ -27,9 +22,7 @@ function client(factoryPool: Address = pool): UniswapV3ReadClient {
       return state
     },
     async readToken(address) {
-      return address === token0
-        ? { symbol: 'WETH', decimals: 18 }
-        : { symbol: 'USDC', decimals: 6 }
+      return address === token0 ? { symbol: 'WETH', decimals: 18 } : { symbol: 'USDC', decimals: 6 }
     },
     async getBlock() {
       return { blockNumber: 123_456n, timestamp: 1_721_000_000n }
