@@ -62,13 +62,7 @@ function header(number: bigint, observedAt: string): BlockHeader {
   }
 }
 
-function swapLog(args: {
-  blockNumber: bigint
-  transaction: number
-  tick: number
-  amount0: bigint
-  amount1: bigint
-}) {
+function swapLog(args: { blockNumber: bigint; transaction: number; tick: number; amount0: bigint; amount1: bigint }) {
   return normalizeSwapLog({
     poolAddress: pool.poolAddress,
     sender: '0x0000000000000000000000000000000000000001',
