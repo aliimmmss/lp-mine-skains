@@ -1,10 +1,7 @@
 import { estimatePositionFeeShare, type PositionFeeShareAnalysis } from '@lp-mine/core'
 import { ROBINHOOD_WETH_USDG_POOLS, SqliteSwapIndexStore } from '@lp-mine/robinhood-univ3'
 import { pathToFileURL } from 'node:url'
-import {
-  readPositionFeeShareReportConfig,
-  type PositionFeeShareReportConfig,
-} from './position-fee-share-config.js'
+import { readPositionFeeShareReportConfig, type PositionFeeShareReportConfig } from './position-fee-share-config.js'
 
 export type PositionFeeShareReport = {
   mode: 'read-only'
