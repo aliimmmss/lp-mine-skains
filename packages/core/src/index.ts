@@ -56,6 +56,7 @@ export type {
   PositionCostBreakdown,
   PositionCostCategory,
   PositionCostEntry,
+  PositionEvidenceProvenance,
 } from './position-costs.js'
 export { analyzePositionHistory } from './position-history.js'
 export type {
