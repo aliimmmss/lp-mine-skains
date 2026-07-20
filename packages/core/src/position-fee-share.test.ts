@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { estimatePositionFeeShare, type PositionFeeShareInput } from './position-fee-share.js'
+import {
+  estimatePositionFeeShare,
+  estimatePositionFeeShareTimeline,
+  type PositionFeeShareInput,
+} from './position-fee-share.js'
 
 const hash = (value: number): `0x${string}` => `0x${value.toString(16).padStart(64, '0')}`
 
@@ -161,5 +165,86 @@ describe('estimatePositionFeeShare', () => {
         }),
       ),
     ).toThrow(/opposite signs/)
+  })
+})
+
+describe('estimatePositionFeeShareTimeline', () => {
+  it('excludes entry-block swaps and emits cumulative block checkpoints in one pass', () => {
+    const swaps = [
+      {
+        blockNumber: 10n,
+        transactionHash: hash(10),
+        logIndex: 0,
+        observedAt: new Date('2026-07-20T10:00:00.000Z'),
+        amount0: 2_000_000n,
+        amount1: -1_000_000n,
+        tickAfter: 0,
+        activeLiquidityAfter: 900n,
+      },
+      {
+        blockNumber: 11n,
+        transactionHash: hash(11),
+        logIndex: 0,
+        observedAt: new Date('2026-07-20T10:00:00.000Z'),
+        amount0: 2_000_000n,
+        amount1: -1_000_000n,
+        tickAfter: 50,
+        activeLiquidityAfter: 900n,
+      },
+      {
+        blockNumber: 12n,
+        transactionHash: hash(12),
+        logIndex: 0,
+        observedAt: new Date('2026-07-20T10:00:00.000Z'),
+        amount0: -1_000_000n,
+        amount1: 4_000_000n,
+        tickAfter: 150,
+        activeLiquidityAfter: 900n,
+      },
+    ] as const
+
+    const result = estimatePositionFeeShareTimeline({
+      ...input({ swaps: [] }),
+      initialTick: 0,
+      entryBlockNumber: 10n,
+      checkpoints: [
+        { blockNumber: 10n, observedAt: new Date('2026-07-20T10:00:00.000Z') },
+        { blockNumber: 11n, observedAt: new Date('2026-07-20T10:00:00.000Z') },
+        { blockNumber: 12n, observedAt: new Date('2026-07-20T10:00:00.000Z') },
+      ],
+      swaps,
+    })
+
+    expect(result.excludedAtOrBeforeEntrySwapCount).toBe(1)
+    expect(result.processedSwapCount).toBe(2)
+    expect(result.checkpoints.map((point) => point.analysis.swapCount)).toEqual([0, 1, 2])
+    expect(result.checkpoints[0]?.analysis.token0.endpointEstimateBaseUnits).toBe(0n)
+    expect(result.checkpoints[1]?.analysis.token0.endpointEstimateBaseUnits).toBe(100n)
+    expect(result.checkpoints[2]?.analysis.token1.upperBoundBaseUnits).toBe(2_000n)
+  })
+
+  it('matches the full-window estimator at the final checkpoint', () => {
+    const parameters = input({ initialTick: -50 })
+    const timeline = estimatePositionFeeShareTimeline({
+      ...parameters,
+      entryBlockNumber: 0n,
+      checkpoints: [{ blockNumber: 3n, observedAt: new Date('2026-07-20T10:02:00.000Z') }],
+    })
+    const legacy = estimatePositionFeeShare(parameters)
+
+    expect(timeline.checkpoints[0]?.analysis).toEqual(legacy)
+  })
+
+  it('rejects non-increasing checkpoint blocks', () => {
+    expect(() =>
+      estimatePositionFeeShareTimeline({
+        ...input(),
+        entryBlockNumber: 0n,
+        checkpoints: [
+          { blockNumber: 2n, observedAt: new Date('2026-07-20T10:01:00.000Z') },
+          { blockNumber: 2n, observedAt: new Date('2026-07-20T10:02:00.000Z') },
+        ],
+      }),
+    ).toThrow(/increase strictly/)
   })
 })
