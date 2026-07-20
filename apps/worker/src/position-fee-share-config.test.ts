@@ -29,19 +29,28 @@ describe('readPositionFeeShareReportConfig', () => {
     })
   })
 
-  it('reads explicit realized fees and categorized costs', () => {
+  it('reads explicit realized fees and categorized costs with shared provenance', () => {
     const result = readPositionFeeShareReportConfig({
       ...required,
       LP_MINE_POSITION_REALIZED_FEES0: '10',
       LP_MINE_POSITION_REALIZED_FEES1: '20',
       LP_MINE_POSITION_GAS_COST1: '5',
       LP_MINE_POSITION_REBALANCE_COST0: '2',
+      LP_MINE_POSITION_EVIDENCE_SOURCE: 'wallet-reconciliation',
+      LP_MINE_POSITION_EVIDENCE_OBSERVED_AT: '2026-07-20T10:30:00.000Z',
+      LP_MINE_POSITION_EVIDENCE_REFERENCE: 'batch-42',
     })
 
-    expect(result.realizedFees).toEqual({ amount0: 10n, amount1: 20n })
+    const provenance = {
+      source: 'wallet-reconciliation',
+      observedAt: new Date('2026-07-20T10:30:00.000Z'),
+      reference: 'batch-42',
+    }
+    expect(result.realizedFees).toEqual({ amount0: 10n, amount1: 20n, provenance })
     expect(result.costsSupplied).toBe(true)
-    expect(result.costs).toContainEqual({ category: 'gas', amount0: 0n, amount1: 5n })
-    expect(result.costs).toContainEqual({ category: 'rebalance', amount0: 2n, amount1: 0n })
+    expect(result.costs).toContainEqual({ category: 'gas', amount0: 0n, amount1: 5n, provenance })
+    expect(result.costs).toContainEqual({ category: 'rebalance', amount0: 2n, amount1: 0n, provenance })
+    expect(result.costs).toContainEqual({ category: 'slippage', amount0: 0n, amount1: 0n })
   })
 
   it('rejects missing and invalid position inputs', () => {
@@ -70,5 +79,18 @@ describe('readPositionFeeShareReportConfig', () => {
         LP_MINE_POSITION_GAS_COST0: '-1',
       }),
     ).toThrow(/non-negative/)
+    expect(() =>
+      readPositionFeeShareReportConfig({
+        ...required,
+        LP_MINE_POSITION_EVIDENCE_SOURCE: 'wallet-reconciliation',
+      }),
+    ).toThrow(/required together/)
+    expect(() =>
+      readPositionFeeShareReportConfig({
+        ...required,
+        LP_MINE_POSITION_EVIDENCE_SOURCE: 'wallet-reconciliation',
+        LP_MINE_POSITION_EVIDENCE_OBSERVED_AT: 'not-a-date',
+      }),
+    ).toThrow(/valid timestamp/)
   })
 })
