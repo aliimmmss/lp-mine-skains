@@ -160,8 +160,11 @@ describe('position performance report', () => {
     expect(report.realized?.evidenceQuality).toBe('complete')
     expect(report.realized?.provenance).toEqual(provenance)
     expect(report.realized?.accounting.netVsHodlToken1BaseUnits).toEqual({ numerator: 100n, denominator: 1n })
+    expect(report.realized?.display.fees).toEqual({ amount0: '0', amount1: '0.0001' })
+    expect(report.realized?.display.token1Values.netVsHodl).toBe('0.000100')
     expect(report.realized?.costAccounting?.totalCostToken1BaseUnits).toEqual({ numerator: 25n, denominator: 1n })
     expect(report.realized?.costAccounting?.evidenceQuality).toBe('complete')
+    expect(report.realized?.costDisplay?.totalCostToken1).toBe('0.000025')
     expect(report.realized?.costAccounting?.netAfterCostsVsHodlToken1BaseUnits).toEqual({
       numerator: 75n,
       denominator: 1n,

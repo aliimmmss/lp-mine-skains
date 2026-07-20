@@ -1,7 +1,9 @@
 import {
   analyzePositionHistory,
   estimatePositionFeeShareTimeline,
+  formatPositionHistoryAnalysis,
   type PositionFeeShareAnalysis,
+  type PositionHistoryDisplay,
   type PositionHistoryAnalysis,
   type PositionHistoryObservationInput,
 } from '@lp-mine/core'
@@ -21,6 +23,7 @@ const OBSERVATION_LIMIT = 500
 export type PositionHistoryScenario = {
   name: 'lower' | 'endpoint' | 'upper'
   analysis: PositionHistoryAnalysis
+  display: PositionHistoryDisplay
 }
 
 export type PositionHistoryReport = {
@@ -122,17 +125,21 @@ export function buildPositionHistoryReport(config: PositionFeeShareReportConfig)
       )
     }
 
-    const scenarios = (['lower', 'endpoint', 'upper'] as const).map((name) => ({
-      name,
-      analysis: analyzePositionHistory({
+    const scenarios = (['lower', 'endpoint', 'upper'] as const).map((name) => {
+      const analysis = analyzePositionHistory({
         token0: entry.value.token0,
         token1: entry.value.token1,
         tickLower: config.tickLower,
         tickUpper: config.tickUpper,
         liquidity: config.positionLiquidity,
         observations: cumulativeHistoryObservations(selectedObservations, timeline.checkpoints, name),
-      }),
-    }))
+      })
+      return {
+        name,
+        analysis,
+        display: formatPositionHistoryAnalysis(analysis, entry.value.token0, entry.value.token1),
+      }
+    })
 
     return {
       mode: 'read-only',
