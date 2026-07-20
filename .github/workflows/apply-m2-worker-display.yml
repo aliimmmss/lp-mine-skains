@@ -1,0 +1,103 @@
+name: Apply M2 worker display integration
+
+on:
+  push:
+    branches:
+      - feature/m2-worker-display
+    paths:
+      - .github/workflows/apply-m2-worker-display.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/m2-worker-display
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Patch worker reports and tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          performance = Path('apps/worker/src/position-performance.ts')
+          text = performance.read_text()
+          text = text.replace(
+          "  analyzeLpVsHodl,\n  applyPositionCosts,\n  estimatePositionFeeShare,\n  type LpVsHodlAnalysis,\n  type PositionCostAccounting,",
+          "  analyzeLpVsHodl,\n  applyPositionCosts,\n  estimatePositionFeeShare,\n  formatLpVsHodlAnalysis,\n  formatPositionCostAccounting,\n  type LpVsHodlAnalysis,\n  type LpVsHodlDisplay,\n  type PositionCostAccounting,\n  type PositionCostAccountingDisplay,"
+          )
+          text = text.replace(
+          "  accounting: LpVsHodlAnalysis\n  costAccounting: PositionCostAccounting | null\n}",
+          "  accounting: LpVsHodlAnalysis\n  display: LpVsHodlDisplay\n  costAccounting: PositionCostAccounting | null\n  costDisplay: PositionCostAccountingDisplay | null\n}"
+          )
+          text = text.replace(
+          "  accounting: LpVsHodlAnalysis\n  costAccounting: PositionCostAccounting | null\n}\n\nexport type PositionPerformanceReport",
+          "  accounting: LpVsHodlAnalysis\n  display: LpVsHodlDisplay\n  costAccounting: PositionCostAccounting | null\n  costDisplay: PositionCostAccountingDisplay | null\n}\n\nexport type PositionPerformanceReport"
+          )
+          text = text.replace(
+          "    const scenarios = scenarioFees.map((scenario) => {\n      const accounting = analyze(scenario.fees0, scenario.fees1)\n      return { ...scenario, accounting, costAccounting: withCosts(accounting) }\n    })",
+          "    const token0 = entryObservation.value.token0\n    const token1 = entryObservation.value.token1\n    const scenarios = scenarioFees.map((scenario) => {\n      const accounting = analyze(scenario.fees0, scenario.fees1)\n      const costAccounting = withCosts(accounting)\n      return {\n        ...scenario,\n        accounting,\n        display: formatLpVsHodlAnalysis(accounting, token0, token1),\n        costAccounting,\n        costDisplay: costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null,\n      }\n    })"
+          )
+          text = text.replace(
+          "            warnings: realizedWarnings,\n            accounting,\n            costAccounting: withCosts(accounting),",
+          "            warnings: realizedWarnings,\n            accounting,\n            display: formatLpVsHodlAnalysis(accounting, token0, token1),\n            costAccounting: withCosts(accounting),\n            costDisplay: (() => {\n              const costAccounting = withCosts(accounting)\n              return costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null\n            })(),"
+          )
+          performance.write_text(text)
+
+          history = Path('apps/worker/src/position-history.ts')
+          text = history.read_text()
+          text = text.replace(
+          "  analyzePositionHistory,\n  estimatePositionFeeShareTimeline,\n  type PositionFeeShareAnalysis,",
+          "  analyzePositionHistory,\n  estimatePositionFeeShareTimeline,\n  formatPositionHistoryAnalysis,\n  type PositionFeeShareAnalysis,\n  type PositionHistoryDisplay,"
+          )
+          text = text.replace(
+          "  name: 'lower' | 'endpoint' | 'upper'\n  analysis: PositionHistoryAnalysis\n}",
+          "  name: 'lower' | 'endpoint' | 'upper'\n  analysis: PositionHistoryAnalysis\n  display: PositionHistoryDisplay\n}"
+          )
+          text = text.replace(
+          "    const scenarios = (['lower', 'endpoint', 'upper'] as const).map((name) => ({\n      name,\n      analysis: analyzePositionHistory({\n        token0: entry.value.token0,\n        token1: entry.value.token1,\n        tickLower: config.tickLower,\n        tickUpper: config.tickUpper,\n        liquidity: config.positionLiquidity,\n        observations: cumulativeHistoryObservations(selectedObservations, timeline.checkpoints, name),\n      }),\n    }))",
+          "    const scenarios = (['lower', 'endpoint', 'upper'] as const).map((name) => {\n      const analysis = analyzePositionHistory({\n        token0: entry.value.token0,\n        token1: entry.value.token1,\n        tickLower: config.tickLower,\n        tickUpper: config.tickUpper,\n        liquidity: config.positionLiquidity,\n        observations: cumulativeHistoryObservations(selectedObservations, timeline.checkpoints, name),\n      })\n      return {\n        name,\n        analysis,\n        display: formatPositionHistoryAnalysis(analysis, entry.value.token0, entry.value.token1),\n      }\n    })"
+          )
+          history.write_text(text)
+
+          performance_test = Path('apps/worker/src/position-performance.test.ts')
+          text = performance_test.read_text()
+          text = text.replace(
+          "    expect(report.realized?.accounting.netVsHodlToken1BaseUnits).toEqual({ numerator: 100n, denominator: 1n })",
+          "    expect(report.realized?.accounting.netVsHodlToken1BaseUnits).toEqual({ numerator: 100n, denominator: 1n })\n    expect(report.realized?.display.fees).toEqual({ amount0: '0', amount1: '0.0001' })\n    expect(report.realized?.display.token1Values.netVsHodl).toBe('0.000100')"
+          )
+          text = text.replace(
+          "    expect(report.realized?.costAccounting?.evidenceQuality).toBe('complete')",
+          "    expect(report.realized?.costAccounting?.evidenceQuality).toBe('complete')\n    expect(report.realized?.costDisplay?.totalCostToken1).toBe('0.000025')"
+          )
+          performance_test.write_text(text)
+
+          history_test = Path('apps/worker/src/position-history.test.ts')
+          text = history_test.read_text()
+          text = text.replace(
+          "    expect(report.scenarios[0]?.analysis.timeInRange).toEqual({ numerator: 1n, denominator: 3n })",
+          "    expect(report.scenarios[0]?.analysis.timeInRange).toEqual({ numerator: 1n, denominator: 3n })\n    expect(report.scenarios[0]?.display.timeInRange).toBe('0.333333')\n    expect(report.scenarios[0]?.display.finalAccounting.token0Symbol).toBe('WETH')\n    expect(report.scenarios[0]?.display.finalAccounting.token1Symbol).toBe('USDG')"
+          )
+          history_test.write_text(text)
+          PY
+      - run: npm run format
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Commit generated changes and remove workflow
+        run: |
+          rm .github/workflows/apply-m2-worker-display.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/worker/src/position-performance.ts apps/worker/src/position-performance.test.ts apps/worker/src/position-history.ts apps/worker/src/position-history.test.ts .github/workflows/apply-m2-worker-display.yml
+          git commit -m "feat(worker): expose exact accounting displays"
+          git push
