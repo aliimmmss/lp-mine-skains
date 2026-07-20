@@ -70,10 +70,7 @@ export function applyPositionCosts(input: PositionCostAccountingInput): Position
       valueToken1BaseUnits: costValue(entry, input.accounting.exitPriceToken1PerToken0),
     }
   })
-  const totalCostToken1BaseUnits = costs.reduce(
-    (total, entry) => add(total, entry.valueToken1BaseUnits),
-    ratio(0n, 1n),
-  )
+  const totalCostToken1BaseUnits = costs.reduce((total, entry) => add(total, entry.valueToken1BaseUnits), ratio(0n, 1n))
 
   return {
     grossNetVsHodlToken1BaseUnits: input.accounting.netVsHodlToken1BaseUnits,
