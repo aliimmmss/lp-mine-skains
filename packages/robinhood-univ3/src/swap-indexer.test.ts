@@ -52,15 +52,22 @@ function memoryCheckpoint(initial: IndexCheckpoint | null = null): {
 }
 
 describe('swap ingestion', () => {
-  it('normalizes canonical fields and rejects empty deltas', () => {
+  it('normalizes canonical fields and rejects malformed deltas', () => {
     expect(swap().amount0).toBe(-1234567890123456789n)
     expect(() =>
       normalizeSwapLog({
         ...swap(),
         amount0: 0n,
-        amount1: 0n,
+        amount1: 1n,
       }),
-    ).toThrow(/zero token deltas/)
+    ).toThrow(/both be non-zero/)
+    expect(() =>
+      normalizeSwapLog({
+        ...swap(),
+        amount0: 1n,
+        amount1: 1n,
+      }),
+    ).toThrow(/opposite signs/)
   })
 
   it('round-trips signed amounts and large state values through SQLite', async () => {
