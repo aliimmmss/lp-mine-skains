@@ -69,12 +69,7 @@ function riskSeverity(flag: PoolHistoryRiskFlag): MonitorAlertSeverity {
   return flag === 'persistent-zero-liquidity' || flag === 'insufficient-observations' ? 'critical' : 'warning'
 }
 
-function alertKey(
-  code: MonitorAlertCode,
-  poolAddress: `0x${string}`,
-  feeTier: number,
-  detail?: string,
-): string {
+function alertKey(code: MonitorAlertCode, poolAddress: `0x${string}`, feeTier: number, detail?: string): string {
   return [code, poolAddress.toLowerCase(), feeTier.toString(), detail].filter((part) => part !== undefined).join(':')
 }
 
