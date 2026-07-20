@@ -3,9 +3,14 @@ import { DatabaseSync } from 'node:sqlite'
 import { getAddress, type Address } from 'viem'
 import type { PoolSnapshot } from './index.js'
 
+export type PoolObservationOrder = 'ascending' | 'descending'
+
 export type PoolObservationQuery = {
   fromBlock?: bigint
   toBlock?: bigint
+  from?: Date
+  to?: Date
+  order?: PoolObservationOrder
   limit?: number
 }
 
@@ -28,6 +33,14 @@ type ObservationRow = {
   quality: string
   warnings_json: string
 }
+
+const OBSERVATION_COLUMNS = `
+  chain_id, pool_address, block_number, observed_at,
+  token0_address, token0_symbol, token0_decimals,
+  token1_address, token1_symbol, token1_decimals,
+  fee_tier, sqrt_price_x96, tick, tick_spacing,
+  active_liquidity, quality, warnings_json
+`
 
 export class SqlitePoolObservationStore {
   readonly #database: DatabaseSync
@@ -61,6 +74,9 @@ export class SqlitePoolObservationStore {
 
       CREATE INDEX IF NOT EXISTS pool_observations_block
       ON pool_observations(CAST(block_number AS INTEGER));
+
+      CREATE INDEX IF NOT EXISTS pool_observations_pool_time
+      ON pool_observations(pool_address, observed_at);
     `)
   }
 
@@ -125,24 +141,19 @@ export class SqlitePoolObservationStore {
   }
 
   listObservations(poolAddress: Address, query: PoolObservationQuery = {}): readonly PoolSnapshot[] {
-    const limit = query.limit ?? 1_000
-    if (!Number.isInteger(limit) || limit <= 0 || limit > 10_000) {
-      throw new RangeError('Observation query limit must be an integer between 1 and 10000')
-    }
-
+    const limit = validateQuery(query)
+    const direction = query.order === 'descending' ? 'DESC' : 'ASC'
     const rows = this.#database
       .prepare(
         `
-        SELECT chain_id, pool_address, block_number, observed_at,
-               token0_address, token0_symbol, token0_decimals,
-               token1_address, token1_symbol, token1_decimals,
-               fee_tier, sqrt_price_x96, tick, tick_spacing,
-               active_liquidity, quality, warnings_json
+        SELECT ${OBSERVATION_COLUMNS}
         FROM pool_observations
         WHERE pool_address = ?
           AND CAST(block_number AS INTEGER) >= CAST(? AS INTEGER)
           AND CAST(block_number AS INTEGER) <= CAST(? AS INTEGER)
-        ORDER BY CAST(block_number AS INTEGER), observed_at
+          AND observed_at >= ?
+          AND observed_at <= ?
+        ORDER BY observed_at ${direction}, CAST(block_number AS INTEGER) ${direction}
         LIMIT ?
       `,
       )
@@ -150,10 +161,45 @@ export class SqlitePoolObservationStore {
         getAddress(poolAddress),
         query.fromBlock?.toString() ?? '0',
         query.toBlock?.toString() ?? '9223372036854775807',
+        query.from?.toISOString() ?? '0000-01-01T00:00:00.000Z',
+        query.to?.toISOString() ?? '9999-12-31T23:59:59.999Z',
         limit,
       ) as ObservationRow[]
 
     return rows.map(rowToSnapshot)
+  }
+
+  firstObservationAtOrAfter(poolAddress: Address, observedAt: Date, to?: Date): PoolSnapshot | null {
+    validateTimestamp(observedAt, 'Observation lower-bound timestamp')
+    if (to) validateTimestamp(to, 'Observation upper-bound timestamp')
+    if (to && observedAt > to) throw new RangeError('Observation lower-bound timestamp must not exceed upper bound')
+    return this.listObservations(poolAddress, {
+      from: observedAt,
+      ...(to ? { to } : {}),
+      order: 'ascending',
+      limit: 1,
+    })[0] ?? null
+  }
+
+  lastObservationAtOrBefore(poolAddress: Address, observedAt: Date): PoolSnapshot | null {
+    validateTimestamp(observedAt, 'Observation upper-bound timestamp')
+    return this.listObservations(poolAddress, { to: observedAt, order: 'descending', limit: 1 })[0] ?? null
+  }
+
+  predecessorObservation(poolAddress: Address, observedAt: Date): PoolSnapshot | null {
+    validateTimestamp(observedAt, 'Observation predecessor timestamp')
+    const row = this.#database
+      .prepare(
+        `
+        SELECT ${OBSERVATION_COLUMNS}
+        FROM pool_observations
+        WHERE pool_address = ? AND observed_at < ?
+        ORDER BY observed_at DESC, CAST(block_number AS INTEGER) DESC
+        LIMIT 1
+      `,
+      )
+      .get(getAddress(poolAddress), observedAt.toISOString()) as ObservationRow | undefined
+    return row ? rowToSnapshot(row) : null
   }
 
   countObservations(poolAddress?: Address): number {
@@ -171,6 +217,29 @@ export class SqlitePoolObservationStore {
   close(): void {
     this.#database.close()
   }
+}
+
+function validateQuery(query: PoolObservationQuery): number {
+  const limit = query.limit ?? 1_000
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 10_000) {
+    throw new RangeError('Observation query limit must be an integer between 1 and 10000')
+  }
+  if (query.fromBlock !== undefined && query.fromBlock < 0n) throw new RangeError('fromBlock must be non-negative')
+  if (query.toBlock !== undefined && query.toBlock < 0n) throw new RangeError('toBlock must be non-negative')
+  if (query.fromBlock !== undefined && query.toBlock !== undefined && query.fromBlock > query.toBlock) {
+    throw new RangeError('fromBlock must not exceed toBlock')
+  }
+  if (query.from) validateTimestamp(query.from, 'Observation query from timestamp')
+  if (query.to) validateTimestamp(query.to, 'Observation query to timestamp')
+  if (query.from && query.to && query.from > query.to) throw new RangeError('Observation query from must not exceed to')
+  if (query.order !== undefined && query.order !== 'ascending' && query.order !== 'descending') {
+    throw new RangeError('Observation query order must be ascending or descending')
+  }
+  return limit
+}
+
+function validateTimestamp(value: Date, name: string): void {
+  if (Number.isNaN(value.getTime())) throw new RangeError(`${name} is invalid`)
 }
 
 function rowToSnapshot(row: ObservationRow): PoolSnapshot {
