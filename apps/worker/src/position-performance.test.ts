@@ -13,6 +13,7 @@ import {
   type PoolSnapshot,
 } from '@lp-mine/robinhood-univ3'
 import { buildPositionPerformanceReport } from './position-performance.js'
+import type { PositionFeeShareReportConfig } from './position-fee-share-config.js'
 
 const directories: string[] = []
 const pool = ROBINHOOD_WETH_USDG_POOLS.find((candidate) => candidate.feeTier === 500)!
@@ -61,7 +62,7 @@ function header(blockNumber: bigint, observedAt: string): BlockHeader {
   }
 }
 
-const config = (path: string) => ({
+const config = (path: string, overrides: Partial<PositionFeeShareReportConfig> = {}): PositionFeeShareReportConfig => ({
   databasePath: path,
   feeTier: 500,
   tickLower: -100,
@@ -69,6 +70,7 @@ const config = (path: string) => ({
   positionLiquidity: 100_000n,
   windowSeconds: 3_600,
   limit: 100,
+  ...overrides,
 })
 
 afterEach(() => {
@@ -91,7 +93,7 @@ describe('position performance report', () => {
     expect(report.warnings.join(' ')).toMatch(/timestamped swap/)
   })
 
-  it('combines observation prices and bounded fee-share scenarios', async () => {
+  it('keeps estimates separate and applies explicit realized fees and costs', async () => {
     const path = databasePath()
     const observations = new SqlitePoolObservationStore(path)
     observations.saveSnapshots([
@@ -135,17 +137,56 @@ describe('position performance report', () => {
     ])
     swaps.close()
 
-    const report = buildPositionPerformanceReport(config(path))
+    const report = buildPositionPerformanceReport(
+      config(path, {
+        realizedFees: { amount0: 0n, amount1: 100n },
+        costsSupplied: true,
+        costs: [{ category: 'gas', amount0: 0n, amount1: 25n }],
+      }),
+    )
     expect(report.status).toBe('complete')
-    expect(report.entryObservation?.block.blockNumber).toBe(10n)
-    expect(report.exitObservation?.block.blockNumber).toBe(20n)
     expect(report.totalMatchingSwaps).toBe(2)
     expect(report.scenarios.map((scenario) => scenario.name)).toEqual(['lower', 'endpoint', 'upper'])
-    expect(report.scenarios[0]?.fees0).toBe(0n)
-    expect(report.scenarios[1]?.fees0).toBeGreaterThan(0n)
-    expect(report.scenarios[2]?.fees0).toBeGreaterThanOrEqual(report.scenarios[1]!.fees0)
-    expect(report.scenarios[0]?.accounting.divergenceToken1BaseUnits).toEqual(
-      report.scenarios[2]?.accounting.divergenceToken1BaseUnits,
-    )
+    expect(report.realized?.fees1).toBe(100n)
+    expect(report.realized?.accounting.netVsHodlToken1BaseUnits).toEqual({ numerator: 100n, denominator: 1n })
+    expect(report.realized?.costAccounting?.totalCostToken1BaseUnits).toEqual({ numerator: 25n, denominator: 1n })
+    expect(report.realized?.costAccounting?.netAfterCostsVsHodlToken1BaseUnits).toEqual({
+      numerator: 75n,
+      denominator: 1n,
+    })
+  })
+
+  it('marks missing cost evidence as partial', async () => {
+    const path = databasePath()
+    const observations = new SqlitePoolObservationStore(path)
+    observations.saveSnapshots([
+      snapshot(10n, '2026-07-20T10:00:00.000Z', 0),
+      snapshot(20n, '2026-07-20T10:30:00.000Z', 20),
+    ])
+    observations.close()
+    const swaps = new SqliteSwapIndexStore(path)
+    await swaps.replaceBlock(header(20n, '2026-07-20T10:30:00.000Z'), [
+      normalizeSwapLog({
+        poolAddress: pool.poolAddress,
+        sender: '0x0000000000000000000000000000000000000001',
+        recipient: '0x0000000000000000000000000000000000000002',
+        amount0: -1n,
+        amount1: 1n,
+        sqrtPriceX96: 1n << 96n,
+        activeLiquidity: 900_000n,
+        tick: 20,
+        blockNumber: 20n,
+        blockHash: hash(20),
+        transactionHash: hash(102),
+        logIndex: 0,
+      }),
+    ])
+    swaps.close()
+
+    const report = buildPositionPerformanceReport(config(path))
+    expect(report.status).toBe('partial')
+    expect(report.costsSupplied).toBe(false)
+    expect(report.scenarios[0]?.costAccounting).toBeNull()
+    expect(report.warnings.join(' ')).toMatch(/cost evidence/)
   })
 })
