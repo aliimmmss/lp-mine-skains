@@ -1,11 +1,6 @@
 import { getAddress } from 'viem'
 import type { PoolSnapshot } from './index.js'
-import {
-  ROBINHOOD_CHAIN_ID,
-  ROBINHOOD_TOKENS,
-  ROBINHOOD_WETH_USDG_POOLS,
-  type SupportedFeeTier,
-} from './registry.js'
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_TOKENS, ROBINHOOD_WETH_USDG_POOLS, type SupportedFeeTier } from './registry.js'
 
 export type CanonicalPool = (typeof ROBINHOOD_WETH_USDG_POOLS)[number]
 

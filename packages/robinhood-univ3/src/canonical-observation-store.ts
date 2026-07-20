@@ -38,7 +38,10 @@ export class SqlitePoolObservationStore {
   }
 
   predecessorObservation(poolAddress: Address, observedAt: Date): PoolSnapshot | null {
-    return validateOptional(this.#store.predecessorObservation(poolAddress, observedAt), canonicalPoolForAddress(poolAddress))
+    return validateOptional(
+      this.#store.predecessorObservation(poolAddress, observedAt),
+      canonicalPoolForAddress(poolAddress),
+    )
   }
 
   countObservations(poolAddress?: Address): number {
@@ -61,7 +64,10 @@ function validateSnapshotWhenCanonical(snapshot: PoolSnapshot): PoolSnapshot {
   return snapshot
 }
 
-function validateSnapshots(snapshots: readonly PoolSnapshot[], expected: CanonicalPool | null): readonly PoolSnapshot[] {
+function validateSnapshots(
+  snapshots: readonly PoolSnapshot[],
+  expected: CanonicalPool | null,
+): readonly PoolSnapshot[] {
   if (expected) for (const snapshot of snapshots) assertCanonicalPoolSnapshot(snapshot, expected)
   return snapshots
 }
