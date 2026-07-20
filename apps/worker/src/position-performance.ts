@@ -2,8 +2,12 @@ import {
   analyzeLpVsHodl,
   applyPositionCosts,
   estimatePositionFeeShare,
+  formatLpVsHodlAnalysis,
+  formatPositionCostAccounting,
   type LpVsHodlAnalysis,
+  type LpVsHodlDisplay,
   type PositionCostAccounting,
+  type PositionCostAccountingDisplay,
   type PositionEvidenceProvenance,
   type PositionFeeShareAnalysis,
 } from '@lp-mine/core'
@@ -23,7 +27,9 @@ export type PositionPerformanceScenario = {
   fees0: bigint
   fees1: bigint
   accounting: LpVsHodlAnalysis
+  display: LpVsHodlDisplay
   costAccounting: PositionCostAccounting | null
+  costDisplay: PositionCostAccountingDisplay | null
 }
 
 export type RealizedPositionPerformance = {
@@ -33,7 +39,9 @@ export type RealizedPositionPerformance = {
   evidenceQuality: 'complete' | 'partial'
   warnings: readonly string[]
   accounting: LpVsHodlAnalysis
+  display: LpVsHodlDisplay
   costAccounting: PositionCostAccounting | null
+  costDisplay: PositionCostAccountingDisplay | null
 }
 
 export type PositionPerformanceReport = {
@@ -164,9 +172,18 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
         fees1: swapEvidence.token1.upperBoundBaseUnits,
       },
     ]
+    const token0 = entryObservation.value.token0
+    const token1 = entryObservation.value.token1
     const scenarios = scenarioFees.map((scenario) => {
       const accounting = analyze(scenario.fees0, scenario.fees1)
-      return { ...scenario, accounting, costAccounting: withCosts(accounting) }
+      const costAccounting = withCosts(accounting)
+      return {
+        ...scenario,
+        accounting,
+        display: formatLpVsHodlAnalysis(accounting, token0, token1),
+        costAccounting,
+        costDisplay: costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null,
+      }
     })
     const costWarnings = scenarios[0]?.costAccounting?.warnings ?? []
     warnings.push(...costWarnings)
@@ -185,7 +202,12 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
             evidenceQuality: realizedWarnings.length === 0 ? ('complete' as const) : ('partial' as const),
             warnings: realizedWarnings,
             accounting,
+            display: formatLpVsHodlAnalysis(accounting, token0, token1),
             costAccounting: withCosts(accounting),
+            costDisplay: (() => {
+              const costAccounting = withCosts(accounting)
+              return costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null
+            })(),
           }
         })()
       : null
