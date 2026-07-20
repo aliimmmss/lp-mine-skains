@@ -55,6 +55,9 @@ export type PositionPerformanceReport = {
 export function buildPositionPerformanceReport(config: PositionFeeShareReportConfig): PositionPerformanceReport {
   const pool = ROBINHOOD_WETH_USDG_POOLS.find((candidate) => candidate.feeTier === config.feeTier)
   if (!pool) throw new Error(`Unsupported canonical fee tier: ${config.feeTier}`)
+  const costsSupplied = config.costsSupplied === true
+  const costs = config.costs ?? []
+  const realizedFees = config.realizedFees ?? null
 
   const coverage = inspectSwapEvidenceCoverage(config.databasePath, pool.poolAddress)
   const observations = new SqlitePoolObservationStore(config.databasePath)
@@ -84,7 +87,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       warnings.push('One or more selected pool observations are partial or stale.')
     }
     for (const observation of windowObservations) warnings.push(...observation.warnings)
-    if (!config.costsSupplied) warnings.push('No explicit gas, slippage, rebalance, or other cost evidence was supplied.')
+    if (!costsSupplied) warnings.push('No explicit gas, slippage, rebalance, or other cost evidence was supplied.')
 
     if (!entryObservation || !exitObservation || entryObservation === exitObservation) {
       return emptyReport(config, pool.poolAddress, coverage, entryObservation, exitObservation, warnings)
@@ -135,7 +138,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
         fees1,
       })
     const withCosts = (accounting: LpVsHodlAnalysis) =>
-      config.costsSupplied ? applyPositionCosts({ accounting, costs: config.costs }) : null
+      costsSupplied ? applyPositionCosts({ accounting, costs }) : null
 
     const scenarioFees = [
       {
@@ -158,12 +161,12 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       const accounting = analyze(scenario.fees0, scenario.fees1)
       return { ...scenario, accounting, costAccounting: withCosts(accounting) }
     })
-    const realized = config.realizedFees
+    const realized = realizedFees
       ? (() => {
-          const accounting = analyze(config.realizedFees.amount0, config.realizedFees.amount1)
+          const accounting = analyze(realizedFees.amount0, realizedFees.amount1)
           return {
-            fees0: config.realizedFees.amount0,
-            fees1: config.realizedFees.amount1,
+            fees0: realizedFees.amount0,
+            fees1: realizedFees.amount1,
             accounting,
             costAccounting: withCosts(accounting),
           }
@@ -183,7 +186,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       swapEvidence,
       scenarios,
       realized,
-      costsSupplied: config.costsSupplied,
+      costsSupplied,
       totalMatchingSwaps: result.totalMatching,
       returnedSwaps: result.swaps.length,
       warnings: [...new Set(warnings)],
@@ -217,7 +220,7 @@ function emptyReport(
     swapEvidence: null,
     scenarios: [],
     realized: null,
-    costsSupplied: config.costsSupplied,
+    costsSupplied: config.costsSupplied === true,
     totalMatchingSwaps: 0,
     returnedSwaps: 0,
     warnings: [...new Set(warnings.length > 0 ? warnings : ['At least two pool observations are required.'])],
