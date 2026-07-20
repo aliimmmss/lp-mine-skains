@@ -1,11 +1,6 @@
 import type { SourceStamped, TokenRef } from '@lp-mine/core'
 import { getAddress, zeroAddress, type Address } from 'viem'
-import {
-  ROBINHOOD_CHAIN_ID,
-  ROBINHOOD_UNISWAP_V3,
-  isSupportedFeeTier,
-  type SupportedFeeTier,
-} from './registry.js'
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3, isSupportedFeeTier, type SupportedFeeTier } from './registry.js'
 
 export { createViemPoolCreatedEventSource, normalizePoolCreatedLog } from './event-source.js'
 export { createRobinhoodPublicClient, createViemReadClient, robinhoodChain } from './live-client.js'
