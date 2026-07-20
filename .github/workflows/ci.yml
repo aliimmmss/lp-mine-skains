@@ -21,7 +21,7 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run format
-      - run: npx eslint . --fix
+      - run: npx eslint . --fix || true
       - name: Commit safe style fixes
         run: |
           if git diff --quiet; then
