@@ -19,9 +19,31 @@ Build an LP decision system that answers four questions before capital is deploy
 - **Non-custodial by default.** Browser-wallet signing; never store seed phrases or private keys.
 - **Deterministic risk controls.** AI may explain and rank, but cannot bypass hard limits.
 - **Real accounting.** Report realized PnL, unrealized inventory, fees, gas, and LP-vs-HODL separately.
-- **Verified contracts only.** Contract addresses and bytecode hashes are pinned per chain.
+- **Verified contracts only.** Contract addresses and immutable pool metadata are pinned per chain.
 - **Uniswap v3 before v4.** v4 pools are rejected unless the hook is zero-address or explicitly allowlisted and reviewed.
-- **No headline-APR chasing.** Rankings use multi-period fee persistence and active liquidity.
+- **No headline-APR chasing.** Rankings use evidence quality, fee persistence, and active liquidity.
+
+## Current Robinhood workflow
+
+The repository now includes a read-only Robinhood Chain data and position-analysis pipeline:
+
+- Canonical WETH/USDG Uniswap v3 pool registry and live verification
+- SQLite-backed pool observations and swap evidence
+- Reorg-aware event indexing and timestamp coverage checks
+- Range-aware lower, endpoint, and upper fee-share estimates
+- LP-versus-HODL accounting, historical replay, drawdown, and time-in-range
+- Optional realized-fee and categorized-cost inputs with source/timestamp provenance
+- Fail-closed tick-spacing and immutable pool-metadata validation
+
+Start with the [Robinhood worker runbook](docs/ROBINHOOD_WORKER.md) for setup, commands, environment variables, evidence rules, report statuses, and current limitations.
+
+```bash
+npm ci
+npm run build
+npm run --workspace @lp-mine/worker pools:observe
+```
+
+The worker commands are read-only. They do not sign transactions or require wallet keys.
 
 ## Initial scope
 
@@ -83,15 +105,15 @@ Build an LP decision system that answers four questions before capital is deploy
 
 Automation is considered only after a statistically meaningful paper and tiny-live sample. Every strategy must have capital, loss, turnover, asset, and protocol limits.
 
-## Proposed repository layout
+## Repository layout
 
 ```text
 apps/
   web/                 dashboard and browser-wallet execution
-  worker/              indexers, scheduled snapshots, alerts
+  worker/              indexers, observations, evidence reports, position replay
 packages/
   core/                shared types and deterministic calculations
-  robinhood-univ3/     Uniswap v3 adapter
+  robinhood-univ3/     Uniswap v3 adapter, registry, storage, integrity checks
   meteora-dlmm/        Meteora adapter
   strategy/            screening, simulation, and portfolio rules
   accounting/          realized PnL and LP-vs-HODL
@@ -100,6 +122,7 @@ docs/
   ARCHITECTURE.md
   SECURITY.md
   METRICS.md
+  ROBINHOOD_WORKER.md
 ```
 
 ## First strategy target
@@ -127,6 +150,8 @@ The project is not successful because it displays a high APR. It is successful w
 
 ## Status
 
-**Planning and foundation. No live execution code yet.**
+**M0 and the Robinhood portion of M1 are operational. M2 analysis is implemented as a read-only research workflow. No live execution code exists.**
 
-This software will be experimental and may result in total loss of funds. Nothing in this repository is financial advice.
+The historical factory deployment/bootstrap block is not yet pinned, so historical scans must use a separately verified start block rather than a guessed value.
+
+This software is experimental and may result in total loss of funds. Nothing in this repository is financial advice.
