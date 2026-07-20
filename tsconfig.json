@@ -1,8 +1,4 @@
 {
   "files": [],
-  "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/robinhood-univ3" },
-    { "path": "./apps/worker" }
-  ]
+  "references": [{ "path": "./packages/core" }, { "path": "./packages/robinhood-univ3" }, { "path": "./apps/worker" }]
 }
