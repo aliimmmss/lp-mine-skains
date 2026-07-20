@@ -16,6 +16,7 @@ export type BlockHeader = {
   number: bigint
   hash: Hex
   parentHash: Hex
+  observedAt?: Date
 }
 
 export type IndexCheckpoint = {

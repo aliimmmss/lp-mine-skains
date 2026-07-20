@@ -9,7 +9,8 @@
     "pools:scan": "node --enable-source-maps dist/pools-scan.js",
     "pools:observe": "node --enable-source-maps dist/pools-observe.js",
     "pools:history": "node --enable-source-maps dist/pools-history.js",
-    "swaps:scan": "node --enable-source-maps dist/swaps-scan.js"
+    "swaps:scan": "node --enable-source-maps dist/swaps-scan.js",
+    "swaps:evidence": "node --enable-source-maps dist/swaps-evidence.js"
   },
   "dependencies": {
     "@lp-mine/core": "*",

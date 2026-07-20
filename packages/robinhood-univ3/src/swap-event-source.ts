@@ -21,7 +21,9 @@ export function createViemSwapEventSource(
     async getBlockHeader(blockNumber): Promise<BlockHeader> {
       const block = await publicClient.getBlock({ blockNumber })
       if (!block.hash) throw new Error(`Block ${blockNumber} has no hash`)
-      return { number: block.number, hash: block.hash, parentHash: block.parentHash }
+      const observedAt = new Date(Number(block.timestamp) * 1_000)
+      if (Number.isNaN(observedAt.getTime())) throw new Error(`Block ${blockNumber} has an invalid timestamp`)
+      return { number: block.number, hash: block.hash, parentHash: block.parentHash, observedAt }
     },
 
     async getSwapEvents(fromBlock, toBlock): Promise<readonly IndexedSwap[]> {

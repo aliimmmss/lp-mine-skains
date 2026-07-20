@@ -39,3 +39,11 @@ export type {
   PoolHistoryOptions,
   PoolHistoryRiskFlag,
 } from './pool-history.js'
+export { analyzeSwapEvidence } from './swap-evidence.js'
+export type {
+  NominalFeeEvidence,
+  SwapEvidenceAnalysis,
+  SwapEvidenceInput,
+  SwapEvidenceObservationInput,
+  TokenFlowEvidence,
+} from './swap-evidence.js'

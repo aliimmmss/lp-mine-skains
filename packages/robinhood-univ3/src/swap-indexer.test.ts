@@ -8,10 +8,15 @@ const hash = (value: number): `0x${string}` => `0x${value.toString(16).padStart(
 const address = (value: number): `0x${string}` => `0x${value.toString(16).padStart(40, '0')}`
 
 function header(number: bigint): BlockHeader {
-  return { number, hash: hash(Number(number)), parentHash: hash(Number(number - 1n)) }
+  return {
+    number,
+    hash: hash(Number(number)),
+    parentHash: hash(Number(number - 1n)),
+    observedAt: new Date(`2026-07-20T10:${number.toString().padStart(2, '0')}:00.000Z`),
+  }
 }
 
-function swap(blockNumber = 10n) {
+function swap(blockNumber = 10n, logIndex = 4) {
   return normalizeSwapLog({
     poolAddress: address(1),
     sender: address(2),
@@ -23,8 +28,8 @@ function swap(blockNumber = 10n) {
     tick: -123,
     blockNumber,
     blockHash: hash(Number(blockNumber)),
-    transactionHash: hash(100 + Number(blockNumber)),
-    logIndex: 4,
+    transactionHash: hash(100 + Number(blockNumber) + logIndex),
+    logIndex,
   })
 }
 
@@ -68,6 +73,24 @@ describe('swap ingestion', () => {
     expect(rows[0]?.amount1).toBe(987654321n)
     expect(rows[0]?.activeLiquidity).toBe(999999999999999999n)
     expect(store.countSwaps()).toBe(1)
+    store.close()
+  })
+
+  it('supports timestamp windows and reports truncation', async () => {
+    const store = new SqliteSwapIndexStore(':memory:')
+    await store.replaceBlock(header(10n), [swap(10n, 1), swap(10n, 2)])
+    await store.replaceBlock(header(11n), [swap(11n, 1)])
+
+    const result = store.listSwapsByTime(address(1), {
+      from: new Date('2026-07-20T10:10:00.000Z'),
+      to: new Date('2026-07-20T10:10:00.000Z'),
+      limit: 1,
+    })
+    expect(result.totalMatching).toBe(2)
+    expect(result.swaps).toHaveLength(1)
+    expect(result.truncated).toBe(true)
+    expect(result.swaps[0]?.observedAt.toISOString()).toBe('2026-07-20T10:10:00.000Z')
+    expect(store.latestSwapTime()?.toISOString()).toBe('2026-07-20T10:11:00.000Z')
     store.close()
   })
 
