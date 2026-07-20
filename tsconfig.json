@@ -2,10 +2,6 @@
   "files": [],
   "references": [
     { "path": "./packages/core" },
-    { "path": "./packages/robinhood-univ3" },
-    { "path": "./packages/strategy" },
-    { "path": "./packages/accounting" },
-    { "path": "./packages/security" },
     { "path": "./apps/worker" }
   ]
 }
