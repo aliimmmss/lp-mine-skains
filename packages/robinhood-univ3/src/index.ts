@@ -1,11 +1,6 @@
 import type { SourceStamped, TokenRef } from '@lp-mine/core'
 import { getAddress, zeroAddress, type Address } from 'viem'
-import {
-  ROBINHOOD_CHAIN_ID,
-  ROBINHOOD_UNISWAP_V3,
-  isSupportedFeeTier,
-  type SupportedFeeTier,
-} from './registry.js'
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3, isSupportedFeeTier, type SupportedFeeTier } from './registry.js'
 
 export { createViemPoolCreatedEventSource, normalizePoolCreatedLog } from './event-source.js'
 export { createRobinhoodPublicClient, createViemReadClient, robinhoodChain } from './live-client.js'
@@ -69,9 +64,7 @@ export async function readVerifiedPoolSnapshot(args: {
   const poolAddress = getAddress(args.poolAddress)
   const token0Address = getAddress(args.token0)
   const token1Address = getAddress(args.token1)
-  const officialPool = getAddress(
-    await args.client.getPool(token0Address, token1Address, args.feeTier),
-  )
+  const officialPool = getAddress(await args.client.getPool(token0Address, token1Address, args.feeTier))
 
   if (officialPool === zeroAddress || officialPool !== poolAddress) {
     throw new PoolVerificationError(
