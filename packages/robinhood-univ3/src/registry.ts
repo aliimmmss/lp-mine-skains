@@ -30,18 +30,22 @@ export type SupportedFeeTier = (typeof SUPPORTED_FEE_TIERS)[number]
 export const ROBINHOOD_WETH_USDG_POOLS = Object.freeze([
   {
     feeTier: 100,
+    tickSpacing: 1,
     poolAddress: getAddress('0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca'),
   },
   {
     feeTier: 500,
+    tickSpacing: 10,
     poolAddress: getAddress('0x69BfaF19C9f377BB306a89aEd9F6B07e2c1a8d9a'),
   },
   {
     feeTier: 3_000,
+    tickSpacing: 60,
     poolAddress: getAddress('0xa9188730Fe85Be88ad499D7d52B099e800fB0334'),
   },
   {
     feeTier: 10_000,
+    tickSpacing: 200,
     poolAddress: getAddress('0x5f009E071F07e92B6C624e83F52F17bBDa34680D'),
   },
 ] as const)

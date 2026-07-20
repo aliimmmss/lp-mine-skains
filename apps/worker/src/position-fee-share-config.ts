@@ -1,4 +1,5 @@
 import type { PositionCostEntry, PositionEvidenceProvenance } from '@lp-mine/core'
+import { validateCanonicalPositionRange } from '@lp-mine/robinhood-univ3'
 
 export type RealizedFeeEvidence = {
   amount0: bigint
@@ -30,8 +31,7 @@ export function readPositionFeeShareReportConfig(
     'LP_MINE_POSITION_LIQUIDITY',
   )
 
-  if (tickLower >= tickUpper)
-    throw new Error('LP_MINE_POSITION_TICK_LOWER must be less than LP_MINE_POSITION_TICK_UPPER')
+  validateCanonicalPositionRange({ feeTier, tickLower, tickUpper })
 
   const realizedFeeValues = [environment.LP_MINE_POSITION_REALIZED_FEES0, environment.LP_MINE_POSITION_REALIZED_FEES1]
   const anyRealizedFees = realizedFeeValues.some((value) => value !== undefined)

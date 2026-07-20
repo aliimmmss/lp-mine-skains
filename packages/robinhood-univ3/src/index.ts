@@ -2,6 +2,7 @@ import type { SourceStamped, TokenRef } from '@lp-mine/core'
 import { getAddress, zeroAddress, type Address } from 'viem'
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3, isSupportedFeeTier, type SupportedFeeTier } from './registry.js'
 
+export { SqlitePoolObservationStore } from './canonical-observation-store.js'
 export { createViemPoolCreatedEventSource, normalizePoolCreatedLog } from './event-source.js'
 export { createRobinhoodPublicClient, createViemReadClient, robinhoodChain } from './live-client.js'
 export type { LiveClientOptions, PoolCreatedLog } from './live-client.js'
@@ -16,8 +17,14 @@ export type {
   SyncOptions,
   SyncResult,
 } from './indexer.js'
-export { SqlitePoolObservationStore } from './observation-store.js'
 export type { PoolObservationOrder, PoolObservationQuery } from './observation-store.js'
+export {
+  PoolIntegrityError,
+  assertCanonicalPoolSnapshot,
+  canonicalPoolForFeeTier,
+  validateCanonicalPositionRange,
+} from './pool-integrity.js'
+export type { CanonicalPool } from './pool-integrity.js'
 export {
   ROBINHOOD_CHAIN_ID,
   ROBINHOOD_TOKENS,
