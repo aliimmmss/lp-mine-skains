@@ -127,13 +127,19 @@ export function analyzePoolHistory(input: PoolHistoryInput, options: PoolHistory
   if (input.observations.length === 0) throw new RangeError('At least one observation is required')
 
   const observations = [...input.observations].sort((left, right) => {
-    if (left.observedAt.getTime() !== right.observedAt.getTime()) return left.observedAt.getTime() - right.observedAt.getTime()
+    if (left.observedAt.getTime() !== right.observedAt.getTime()) {
+      return left.observedAt.getTime() - right.observedAt.getTime()
+    }
     return left.blockNumber < right.blockNumber ? -1 : left.blockNumber > right.blockNumber ? 1 : 0
   })
   for (const observation of observations) {
-    if (Number.isNaN(observation.observedAt.getTime())) throw new RangeError('Observation timestamps must be valid')
+    if (Number.isNaN(observation.observedAt.getTime())) {
+      throw new RangeError('Observation timestamps must be valid')
+    }
     if (observation.sqrtPriceX96 <= 0n) throw new RangeError('Observation sqrtPriceX96 must be positive')
-    if (observation.activeLiquidity < 0n) throw new RangeError('Observation activeLiquidity must be non-negative')
+    if (observation.activeLiquidity < 0n) {
+      throw new RangeError('Observation activeLiquidity must be non-negative')
+    }
   }
 
   const first = observations[0]!
@@ -151,15 +157,23 @@ export function analyzePoolHistory(input: PoolHistoryInput, options: PoolHistory
     if (index > 0) {
       const gap = Math.max(
         0,
-        Math.floor((observations[index]!.observedAt.getTime() - observations[index - 1]!.observedAt.getTime()) / 1_000),
+        Math.floor(
+          (observations[index]!.observedAt.getTime() - observations[index - 1]!.observedAt.getTime()) / 1_000,
+        ),
       )
       if (gap > largestGapSeconds) largestGapSeconds = gap
     }
   }
 
-  const elapsedSeconds = Math.max(0, Math.floor((last.observedAt.getTime() - first.observedAt.getTime()) / 1_000))
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((last.observedAt.getTime() - first.observedAt.getTime()) / 1_000),
+  )
   const expectedObservationCount = elapsedSeconds === 0 ? 1 : Math.floor(elapsedSeconds / expectedIntervalSeconds) + 1
-  const coverage = ratio(BigInt(Math.min(observations.length, expectedObservationCount)), BigInt(expectedObservationCount))
+  const coverage = ratio(
+    BigInt(Math.min(observations.length, expectedObservationCount)),
+    BigInt(expectedObservationCount),
+  )
   const completeObservationCount = observations.filter((observation) => observation.quality === 'complete').length
   const nonZeroObservationCount = observations.filter((observation) => observation.activeLiquidity > 0n).length
   const nonZeroShare = ratio(BigInt(nonZeroObservationCount), BigInt(observations.length))
@@ -175,7 +189,9 @@ export function analyzePoolHistory(input: PoolHistoryInput, options: PoolHistory
   const warnings = observations.flatMap((observation) => observation.warnings)
 
   if (observations.length < 2) riskFlags.push('insufficient-observations')
-  if (coverage.numerator * 10_000n < coverage.denominator * BigInt(minimumCoverageBps)) riskFlags.push('coverage-gap')
+  if (coverage.numerator * 10_000n < coverage.denominator * BigInt(minimumCoverageBps)) {
+    riskFlags.push('coverage-gap')
+  }
   if (nonZeroObservationCount === 0) riskFlags.push('persistent-zero-liquidity')
   if (completeObservationCount !== observations.length) riskFlags.push('incomplete-history')
 
@@ -238,6 +254,7 @@ export function analyzePoolHistory(input: PoolHistoryInput, options: PoolHistory
     },
     riskFlags,
     warnings,
-    disclaimer: 'Historical price, tick, liquidity, and coverage metrics are descriptive signals, not fee, APR, or profitability estimates.',
+    disclaimer:
+      'Historical price, tick, liquidity, and coverage metrics are descriptive signals, not fee, APR, or profitability estimates.',
   }
 }
