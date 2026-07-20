@@ -1,9 +1,12 @@
 import { formatRatio, type ExactRatio } from './pool-analysis.js'
+import { classifyCanonicalSwap } from './swap-shape.js'
 
 const FEE_DENOMINATOR = 1_000_000n
 
 export type PositionFeeShareSwapInput = {
   blockNumber: bigint
+  transactionHash: `0x${string}`
+  logIndex: number
   observedAt: Date
   amount0: bigint
   amount1: bigint
@@ -19,6 +22,7 @@ export type PositionFeeShareInput = {
   positionLiquidity: bigint
   token0Decimals: number
   token1Decimals: number
+  initialTick?: number
   swaps: readonly PositionFeeShareSwapInput[]
 }
 
@@ -88,6 +92,12 @@ function shareFloor(fee: ExactRatio, positionLiquidity: bigint, activeLiquidityA
   return (fee.numerator * positionLiquidity) / (fee.denominator * denominator)
 }
 
+function feeCeiling(inputAmount: bigint, feeTier: number): bigint {
+  const numerator = inputAmount * BigInt(feeTier)
+  const floor = numerator / FEE_DENOMINATOR
+  return floor + (numerator % FEE_DENOMINATOR === 0n ? 0n : 1n)
+}
+
 function decimal(baseUnits: bigint, decimals: number): string {
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 30) {
     throw new RangeError('Token decimals must be an integer between 0 and 30')
@@ -102,6 +112,9 @@ export function estimatePositionFeeShare(input: PositionFeeShareInput): Position
   if (!Number.isInteger(input.tickLower) || !Number.isInteger(input.tickUpper) || input.tickLower >= input.tickUpper) {
     throw new RangeError('tickLower must be less than tickUpper')
   }
+  if (input.initialTick !== undefined && !Number.isInteger(input.initialTick)) {
+    throw new RangeError('initialTick must be an integer')
+  }
   if (input.positionLiquidity <= 0n) throw new RangeError('positionLiquidity must be positive')
   if (input.swaps.length === 0) throw new RangeError('At least one swap is required')
 
@@ -109,25 +122,29 @@ export function estimatePositionFeeShare(input: PositionFeeShareInput): Position
     if (left.observedAt.getTime() !== right.observedAt.getTime()) {
       return left.observedAt.getTime() - right.observedAt.getTime()
     }
-    return left.blockNumber < right.blockNumber ? -1 : left.blockNumber > right.blockNumber ? 1 : 0
+    if (left.blockNumber !== right.blockNumber) return left.blockNumber < right.blockNumber ? -1 : 1
+    return left.logIndex - right.logIndex
   })
 
-  let previousTick: number | null = null
+  let previousTick: number | null = input.initialTick ?? null
   let knownStartTickSwapCount = 0
   let unknownStartTickSwapCount = 0
   let endpointInRangeSwapCount = 0
   let pathIntersectingSwapCount = 0
   let token0Input = 0n
   let token1Input = 0n
+  let token0IntersectingInput = 0n
+  let token1IntersectingInput = 0n
   let token0EndpointEstimate = 0n
   let token1EndpointEstimate = 0n
-  let token0UpperBound = 0n
-  let token1UpperBound = 0n
 
   for (const swap of swaps) {
     if (Number.isNaN(swap.observedAt.getTime())) throw new RangeError('Swap timestamps must be valid')
+    if (!Number.isInteger(swap.logIndex) || swap.logIndex < 0) {
+      throw new RangeError('Swap logIndex must be a non-negative integer')
+    }
     if (swap.activeLiquidityAfter < 0n) throw new RangeError('activeLiquidityAfter must be non-negative')
-    if (swap.amount0 === 0n && swap.amount1 === 0n) throw new RangeError('Swap token deltas cannot both be zero')
+    const direction = classifyCanonicalSwap(swap.amount0, swap.amount1)
 
     if (previousTick === null) unknownStartTickSwapCount += 1
     else knownStartTickSwapCount += 1
@@ -137,8 +154,8 @@ export function estimatePositionFeeShare(input: PositionFeeShareInput): Position
     if (endpointInRange) endpointInRangeSwapCount += 1
     if (intersects) pathIntersectingSwapCount += 1
 
-    const input0 = swap.amount0 > 0n ? swap.amount0 : 0n
-    const input1 = swap.amount1 > 0n ? swap.amount1 : 0n
+    const input0 = direction === 'token0-input' ? swap.amount0 : 0n
+    const input1 = direction === 'token1-input' ? swap.amount1 : 0n
     token0Input += input0
     token1Input += input1
 
@@ -149,8 +166,8 @@ export function estimatePositionFeeShare(input: PositionFeeShareInput): Position
       token1EndpointEstimate += shareFloor(fee1, input.positionLiquidity, swap.activeLiquidityAfter)
     }
     if (intersects) {
-      token0UpperBound += fee0.numerator / fee0.denominator
-      token1UpperBound += fee1.numerator / fee1.denominator
+      token0IntersectingInput += input0
+      token1IntersectingInput += input1
     }
 
     previousTick = swap.tickAfter
@@ -158,6 +175,8 @@ export function estimatePositionFeeShare(input: PositionFeeShareInput): Position
 
   const token0Nominal = nominalFeeBaseUnits(token0Input, input.feeTier)
   const token1Nominal = nominalFeeBaseUnits(token1Input, input.feeTier)
+  const token0UpperBound = feeCeiling(token0IntersectingInput, input.feeTier)
+  const token1UpperBound = feeCeiling(token1IntersectingInput, input.feeTier)
 
   return {
     poolAddress: input.poolAddress,
@@ -191,10 +210,12 @@ export function estimatePositionFeeShare(input: PositionFeeShareInput): Position
     assumptions: [
       'The endpoint estimate treats each swap as in range only when its post-swap tick is inside the proposed range.',
       'The endpoint estimate uses post-swap active liquidity and assumes the proposed position adds to that liquidity.',
-      'The upper bound includes every swap whose known or unknown tick path could intersect the proposed range.',
-      'The first swap has an unknown start tick unless predecessor evidence is supplied externally.',
+      'The upper bound applies one aggregate fee ceiling to all validated input flow whose tick path could intersect the range.',
+      input.initialTick === undefined
+        ? 'The first swap has an unknown start tick because predecessor evidence was not supplied.'
+        : 'The supplied initial tick is used as predecessor evidence for the first swap.',
     ],
     disclaimer:
-      'This is a bounded fee-share estimate from swap endpoints and active-liquidity snapshots. It is not realized fees, APR, LP-vs-HODL return, or profitability.',
+      'This is a bounded fee-share estimate from validated swap endpoints and active-liquidity snapshots. It is not realized fees, APR, LP-vs-HODL return, or profitability.',
   }
 }
