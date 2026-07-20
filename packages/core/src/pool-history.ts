@@ -157,18 +157,13 @@ export function analyzePoolHistory(input: PoolHistoryInput, options: PoolHistory
     if (index > 0) {
       const gap = Math.max(
         0,
-        Math.floor(
-          (observations[index]!.observedAt.getTime() - observations[index - 1]!.observedAt.getTime()) / 1_000,
-        ),
+        Math.floor((observations[index]!.observedAt.getTime() - observations[index - 1]!.observedAt.getTime()) / 1_000),
       )
       if (gap > largestGapSeconds) largestGapSeconds = gap
     }
   }
 
-  const elapsedSeconds = Math.max(
-    0,
-    Math.floor((last.observedAt.getTime() - first.observedAt.getTime()) / 1_000),
-  )
+  const elapsedSeconds = Math.max(0, Math.floor((last.observedAt.getTime() - first.observedAt.getTime()) / 1_000))
   const expectedObservationCount = elapsedSeconds === 0 ? 1 : Math.floor(elapsedSeconds / expectedIntervalSeconds) + 1
   const coverage = ratio(
     BigInt(Math.min(observations.length, expectedObservationCount)),
@@ -196,9 +191,7 @@ export function analyzePoolHistory(input: PoolHistoryInput, options: PoolHistory
   if (completeObservationCount !== observations.length) riskFlags.push('incomplete-history')
 
   const liquidityRelativeChange =
-    first.activeLiquidity > 0n
-      ? ratio(last.activeLiquidity - first.activeLiquidity, first.activeLiquidity)
-      : undefined
+    first.activeLiquidity > 0n ? ratio(last.activeLiquidity - first.activeLiquidity, first.activeLiquidity) : undefined
 
   return {
     poolAddress: input.poolAddress,
