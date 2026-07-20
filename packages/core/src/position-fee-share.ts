@@ -67,10 +67,6 @@ function ratio(numerator: bigint, denominator: bigint): ExactRatio {
   return { numerator: numerator / divisor, denominator: denominator / divisor }
 }
 
-function absolute(value: bigint): bigint {
-  return value < 0n ? -value : value
-}
-
 function isInRange(tick: number, lower: number, upper: number): boolean {
   return tick >= lower && tick < upper
 }
