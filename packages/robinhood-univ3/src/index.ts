@@ -19,6 +19,13 @@ export type {
 export { SqlitePoolObservationStore } from './observation-store.js'
 export type { PoolObservationOrder, PoolObservationQuery } from './observation-store.js'
 export {
+  PoolIntegrityError,
+  assertCanonicalPoolSnapshot,
+  canonicalPoolForFeeTier,
+  validateCanonicalPositionRange,
+} from './pool-integrity.js'
+export type { CanonicalPool } from './pool-integrity.js'
+export {
   ROBINHOOD_CHAIN_ID,
   ROBINHOOD_TOKENS,
   ROBINHOOD_UNISWAP_V3,
