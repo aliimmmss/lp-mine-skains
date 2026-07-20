@@ -27,10 +27,7 @@ export function readPositionFeeShareReportConfig(
   if (tickLower >= tickUpper)
     throw new Error('LP_MINE_POSITION_TICK_LOWER must be less than LP_MINE_POSITION_TICK_UPPER')
 
-  const realizedFeeValues = [
-    environment.LP_MINE_POSITION_REALIZED_FEES0,
-    environment.LP_MINE_POSITION_REALIZED_FEES1,
-  ]
+  const realizedFeeValues = [environment.LP_MINE_POSITION_REALIZED_FEES0, environment.LP_MINE_POSITION_REALIZED_FEES1]
   const anyRealizedFees = realizedFeeValues.some((value) => value !== undefined)
   const allRealizedFees = realizedFeeValues.every((value) => value !== undefined)
   if (anyRealizedFees && !allRealizedFees) {
