@@ -1,0 +1,35 @@
+name: Pool Integrity Formatter
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/m2-pool-integrity
+    paths:
+      - '.github/workflows/pool-integrity-formatter.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/m2-pool-integrity
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply formatter and remove workflow
+        run: |
+          npx prettier --write packages/robinhood-univ3/src/registry.ts packages/robinhood-univ3/src/pool-integrity.ts packages/robinhood-univ3/src/pool-integrity.test.ts packages/robinhood-univ3/src/canonical-observation-store.ts packages/robinhood-univ3/src/index.ts apps/worker/src/position-fee-share-config.ts apps/worker/src/position-tick-alignment.test.ts
+          rm .github/workflows/pool-integrity-formatter.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'style: format pool integrity changes'
+          git push
