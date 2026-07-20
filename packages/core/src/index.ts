@@ -41,6 +41,14 @@ export type {
   PoolHistoryOptions,
   PoolHistoryRiskFlag,
 } from './pool-history.js'
+export { applyPositionCosts } from './position-costs.js'
+export type {
+  PositionCostAccounting,
+  PositionCostAccountingInput,
+  PositionCostBreakdown,
+  PositionCostCategory,
+  PositionCostEntry,
+} from './position-costs.js'
 export { analyzePositionHistory } from './position-history.js'
 export type {
   PositionHistoryAnalysis,
