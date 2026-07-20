@@ -11,8 +11,7 @@ const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/
 export const MIN_UNISWAP_V3_TICK = -887_272
 export const MAX_UNISWAP_V3_TICK = 887_272
 export const MIN_UNISWAP_V3_SQRT_RATIO_X96 = 4_295_128_739n
-export const MAX_UNISWAP_V3_SQRT_RATIO_X96 =
-  1_461_446_703_485_210_103_287_273_052_203_988_822_378_723_970_342n
+export const MAX_UNISWAP_V3_SQRT_RATIO_X96 = 1_461_446_703_485_210_103_287_273_052_203_988_822_378_723_970_342n
 
 export type PositionInventory = { amount0: bigint; amount1: bigint }
 
@@ -83,7 +82,8 @@ function nonNegativeDifference(left: ExactRatio, right: ExactRatio): ExactRatio 
 }
 
 function validateToken(token: TokenRef, name: string): void {
-  if (!Number.isSafeInteger(token.chainId) || token.chainId <= 0) throw new RangeError(`${name}.chainId must be positive`)
+  if (!Number.isSafeInteger(token.chainId) || token.chainId <= 0)
+    throw new RangeError(`${name}.chainId must be positive`)
   if (!ADDRESS_PATTERN.test(token.address)) throw new RangeError(`${name}.address must be a 20-byte hex address`)
   if (token.symbol.trim().length === 0) throw new RangeError(`${name}.symbol must not be empty`)
   if (!Number.isInteger(token.decimals) || token.decimals < 0 || token.decimals > 255) {
@@ -191,7 +191,8 @@ export function analyzeLpVsHodl(input: LpVsHodlInput): LpVsHodlAnalysis {
   ) {
     throw new RangeError('tickLower and tickUpper must be ordered Uniswap v3 ticks')
   }
-  if (input.liquidity <= 0n || input.liquidity > MAX_UINT128) throw new RangeError('Liquidity must be a positive uint128')
+  if (input.liquidity <= 0n || input.liquidity > MAX_UINT128)
+    throw new RangeError('Liquidity must be a positive uint128')
   if ((input.fees0 ?? 0n) < 0n || (input.fees1 ?? 0n) < 0n) throw new RangeError('Fees must be non-negative')
   validateSqrtPriceX96(input.entrySqrtPriceX96, 'entrySqrtPriceX96')
   validateSqrtPriceX96(input.exitSqrtPriceX96, 'exitSqrtPriceX96')
