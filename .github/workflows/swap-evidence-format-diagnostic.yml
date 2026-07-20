@@ -1,0 +1,26 @@
+name: Swap Evidence Format Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture Prettier patch
+        run: |
+          npx prettier --write apps/worker/package.json apps/worker/src/swaps-evidence-config.ts apps/worker/src/swaps-evidence-config.test.ts apps/worker/src/swaps-evidence.ts packages/core/src/index.ts packages/core/src/swap-evidence.ts packages/core/src/swap-evidence.test.ts packages/robinhood-univ3/src/index.ts packages/robinhood-univ3/src/indexer.ts packages/robinhood-univ3/src/swap-event-source.ts packages/robinhood-univ3/src/swap-indexer.test.ts packages/robinhood-univ3/src/swap-store.ts
+          git diff -- . ':!.github/workflows/swap-evidence-format-diagnostic.yml' > prettier.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swap-evidence-prettier-patch
+          path: prettier.patch
