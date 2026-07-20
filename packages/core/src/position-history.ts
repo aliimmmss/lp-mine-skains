@@ -118,7 +118,11 @@ function drawdownRate(drawdown: ExactRatio, peak: ExactRatio): ExactRatio {
 }
 
 function validateTickAndSqrtPrice(observation: PositionHistoryObservationInput): void {
-  if (!Number.isInteger(observation.tick) || observation.tick < MIN_UNISWAP_V3_TICK || observation.tick >= MAX_UNISWAP_V3_TICK) {
+  if (
+    !Number.isInteger(observation.tick) ||
+    observation.tick < MIN_UNISWAP_V3_TICK ||
+    observation.tick >= MAX_UNISWAP_V3_TICK
+  ) {
     throw new RangeError('Observation ticks must be executable Uniswap v3 ticks')
   }
   if (
@@ -164,7 +168,8 @@ export function analyzePositionHistory(input: PositionHistoryInput): PositionHis
   for (const observation of observations) {
     const timestamp = observation.observedAt.getTime()
     if (Number.isNaN(timestamp)) throw new RangeError('Observation timestamps must be valid')
-    if (blockNumbers.has(observation.blockNumber.toString())) throw new RangeError('Observation block numbers must be unique')
+    if (blockNumbers.has(observation.blockNumber.toString()))
+      throw new RangeError('Observation block numbers must be unique')
     if (timestamps.has(timestamp)) throw new RangeError('Observation timestamps must be unique')
     blockNumbers.add(observation.blockNumber.toString())
     timestamps.add(timestamp)
