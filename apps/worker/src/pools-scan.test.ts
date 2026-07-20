@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readPoolScanConfig } from './pools-scan.js'
+import { readPoolScanConfig } from './pools-scan-config.js'
 
 describe('readPoolScanConfig', () => {
   it('requires an explicit start block', () => {
