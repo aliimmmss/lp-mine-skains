@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "pools:scan": "node --enable-source-maps dist/pools-scan.js"
   },
   "dependencies": {
-    "@lp-mine/core": "*"
+    "@lp-mine/core": "*",
+    "@lp-mine/robinhood-univ3": "*"
   }
 }
