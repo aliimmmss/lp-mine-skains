@@ -56,3 +56,5 @@ export type {
   SwapEvidenceObservationInput,
   TokenFlowEvidence,
 } from './swap-evidence.js'
+export { classifyCanonicalSwap } from './swap-shape.js'
+export type { CanonicalSwapDirection } from './swap-shape.js'
