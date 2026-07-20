@@ -26,6 +26,10 @@ export {
   SUPPORTED_FEE_TIERS,
 } from './registry.js'
 export type { SupportedFeeTier } from './registry.js'
+export { createViemSwapEventSource, normalizeSwapLog } from './swap-event-source.js'
+export { syncSwapEvents } from './swap-indexer.js'
+export type { IndexedSwap, SwapEventSink, SwapEventSource } from './swap-indexer.js'
+export { SqliteSwapIndexStore } from './swap-store.js'
 export { SqlitePoolIndexStore } from './sqlite-store.js'
 
 export type PoolIdentity = {
