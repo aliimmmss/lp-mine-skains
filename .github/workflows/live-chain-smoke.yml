@@ -22,8 +22,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build diagnostic command
+        id: build
+        shell: bash
+        run: |
+          set +e
+          npm run build > build-output.txt 2>&1
+          status=$?
+          cat build-output.txt
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
       - name: Probe public RPC and canonical contracts
+        if: steps.build.outputs.exit_code == '0'
         shell: bash
         run: |
           set +e
@@ -40,8 +50,12 @@ jobs:
         with:
           name: robinhood-live-smoke
           path: |
+            build-output.txt
             live-smoke.json
             live-smoke-error.txt
+      - name: Report build failure
+        if: steps.build.outputs.exit_code != '0'
+        run: exit 1
       - name: Report smoke failure
-        if: steps.smoke.outputs.exit_code != '0'
+        if: steps.build.outputs.exit_code == '0' && steps.smoke.outputs.exit_code != '0'
         run: exit 1
