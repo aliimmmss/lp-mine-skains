@@ -1,0 +1,29 @@
+name: Position Performance Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture diagnostics
+        run: |
+          npm test -- --run apps/worker/src/position-performance.test.ts > test.txt 2>&1 || true
+          npx prettier --write apps/worker/package.json apps/worker/src/position-performance.ts apps/worker/src/position-performance.test.ts
+          git diff -- . ':!.github/workflows/position-performance-diagnostic.yml' > prettier.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: position-performance-diagnostics
+          path: |
+            test.txt
+            prettier.patch
