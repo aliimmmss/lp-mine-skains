@@ -31,3 +31,11 @@ export type {
   PoolComparisonReport,
   PoolRiskFlag,
 } from './pool-analysis.js'
+export { analyzePoolHistory } from './pool-history.js'
+export type {
+  PoolHistoryAnalysis,
+  PoolHistoryInput,
+  PoolHistoryObservationInput,
+  PoolHistoryOptions,
+  PoolHistoryRiskFlag,
+} from './pool-history.js'
