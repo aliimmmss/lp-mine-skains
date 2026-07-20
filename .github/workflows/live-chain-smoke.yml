@@ -22,8 +22,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Render pinned formatting
-        run: npx prettier --write packages/robinhood-univ3/src/live-smoke.ts .github/workflows/live-chain-smoke.yml
       - name: Build diagnostic command
         id: build
         shell: bash
@@ -55,8 +53,6 @@ jobs:
             build-output.txt
             live-smoke.json
             live-smoke-error.txt
-            packages/robinhood-univ3/src/live-smoke.ts
-            .github/workflows/live-chain-smoke.yml
       - name: Report build failure
         if: steps.build.outputs.exit_code != '0'
         run: exit 1
