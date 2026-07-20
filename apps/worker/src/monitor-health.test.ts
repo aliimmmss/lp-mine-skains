@@ -64,17 +64,32 @@ function history(overrides: Partial<PoolHistoryReport> = {}): PoolHistoryReport 
 }
 
 describe('monitor health summary', () => {
-  it('returns healthy for fresh complete evidence', () => {
+  it('returns dashboard-ready counts for fresh complete evidence', () => {
     const report = summarizeMonitorHealth(history(), 300, generatedAt)
     expect(report.status).toBe('healthy')
     expect(report.alerts).toEqual([])
     expect(report.pools[0]?.ageSeconds).toBe(60)
+    expect(report.source).toEqual({ databasePath: '/tmp/evidence.sqlite', historyGeneratedAt: generatedAt })
+    expect(report.summary).toEqual({
+      poolCounts: { total: 1, healthy: 1, degraded: 0, critical: 0 },
+      alertCounts: {
+        total: 0,
+        warning: 0,
+        critical: 0,
+        byCode: { 'missing-pool': 0, 'stale-observation': 0, 'history-risk': 0, 'source-warning': 0 },
+      },
+      oldestObservationAgeSeconds: 60,
+    })
   })
 
-  it('returns degraded for stale evidence', () => {
-    const report = summarizeMonitorHealth(history(), 30, generatedAt)
-    expect(report.status).toBe('degraded')
-    expect(report.alerts.map((alert) => alert.code)).toEqual(['stale-observation'])
+  it('returns degraded for stale evidence with a stable alert identity', () => {
+    const first = summarizeMonitorHealth(history(), 30, generatedAt)
+    const later = summarizeMonitorHealth(history(), 30, new Date('2026-07-21T00:01:00.000Z'))
+    expect(first.status).toBe('degraded')
+    expect(first.alerts.map((alert) => alert.code)).toEqual(['stale-observation'])
+    expect(first.alerts[0]?.alertKey).toBe(later.alerts[0]?.alertKey)
+    expect(first.alerts[0]?.message).not.toBe(later.alerts[0]?.message)
+    expect(first.summary.alertCounts).toMatchObject({ total: 1, warning: 1, critical: 0 })
   })
 
   it('returns critical when a canonical pool is missing', () => {
@@ -87,10 +102,17 @@ describe('monitor health summary', () => {
       generatedAt,
     )
     expect(report.status).toBe('critical')
-    expect(report.alerts[0]).toMatchObject({ severity: 'critical', code: 'missing-pool', feeTier: 500 })
+    expect(report.alerts[0]).toMatchObject({
+      alertKey: `missing-pool:${poolAddress}:500`,
+      severity: 'critical',
+      code: 'missing-pool',
+      feeTier: 500,
+    })
+    expect(report.summary.poolCounts).toEqual({ total: 1, healthy: 0, degraded: 0, critical: 1 })
+    expect(report.summary.oldestObservationAgeSeconds).toBeNull()
   })
 
-  it('treats persistent zero liquidity as critical', () => {
+  it('treats persistent zero liquidity as critical and groups the risk alert', () => {
     const source = history()
     const analysis = source.analyzedPools[0]!
     const report = summarizeMonitorHealth(
@@ -100,5 +122,7 @@ describe('monitor health summary', () => {
     )
     expect(report.status).toBe('critical')
     expect(report.alerts[0]).toMatchObject({ severity: 'critical', code: 'history-risk' })
+    expect(report.summary.alertCounts.byCode['history-risk']).toBe(1)
+    expect(report.summary.poolCounts.critical).toBe(1)
   })
 })
