@@ -1,0 +1,26 @@
+name: LP Accounting Format Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture Prettier patch
+        run: |
+          npx prettier --write packages/core/src/index.ts packages/core/src/lp-vs-hodl.ts packages/core/src/lp-vs-hodl.test.ts
+          git diff -- . ':!.github/workflows/lp-vs-hodl-format-diagnostic.yml' > prettier.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lp-vs-hodl-prettier-patch
+          path: prettier.patch
