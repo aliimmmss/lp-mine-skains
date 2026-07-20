@@ -21,3 +21,13 @@ export type SourceStamped<T> = {
   quality: DataQuality
   warnings: readonly string[]
 }
+
+export { analyzePool, compareFeeTierPools, formatRatio, sqrtPriceX96ToToken1PerToken0 } from './pool-analysis.js'
+export type {
+  ExactRatio,
+  PoolAnalysis,
+  PoolAnalysisInput,
+  PoolAnalysisOptions,
+  PoolComparisonReport,
+  PoolRiskFlag,
+} from './pool-analysis.js'
