@@ -4,6 +4,7 @@ import {
   estimatePositionFeeShare,
   type LpVsHodlAnalysis,
   type PositionCostAccounting,
+  type PositionEvidenceProvenance,
   type PositionFeeShareAnalysis,
 } from '@lp-mine/core'
 import {
@@ -28,6 +29,9 @@ export type PositionPerformanceScenario = {
 export type RealizedPositionPerformance = {
   fees0: bigint
   fees1: bigint
+  provenance: PositionEvidenceProvenance | null
+  evidenceQuality: 'complete' | 'partial'
+  warnings: readonly string[]
   accounting: LpVsHodlAnalysis
   costAccounting: PositionCostAccounting | null
 }
@@ -164,12 +168,22 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       const accounting = analyze(scenario.fees0, scenario.fees1)
       return { ...scenario, accounting, costAccounting: withCosts(accounting) }
     })
+    const costWarnings = scenarios[0]?.costAccounting?.warnings ?? []
+    warnings.push(...costWarnings)
+
     const realized = realizedFees
       ? (() => {
           const accounting = analyze(realizedFees.amount0, realizedFees.amount1)
+          const realizedWarnings = realizedFees.provenance
+            ? []
+            : ['Realized fee evidence has no provenance source or observation timestamp.']
+          warnings.push(...realizedWarnings)
           return {
             fees0: realizedFees.amount0,
             fees1: realizedFees.amount1,
+            provenance: realizedFees.provenance ?? null,
+            evidenceQuality: realizedWarnings.length === 0 ? ('complete' as const) : ('partial' as const),
+            warnings: realizedWarnings,
             accounting,
             costAccounting: withCosts(accounting),
           }
@@ -194,7 +208,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       returnedSwaps: result.swaps.length,
       warnings: [...new Set(warnings)],
       disclaimer:
-        'Estimated fee scenarios remain separate from externally supplied realized fees. Cost-adjusted values appear only when explicit cost evidence is supplied. This report does not infer APR, taxes, incentives, or execution quality.',
+        'Estimated fee scenarios remain separate from externally supplied realized fees. Complete external evidence records a source and observation timestamp; references remain optional. Cost-adjusted values appear only when explicit cost evidence is supplied. This report does not infer APR, taxes, incentives, or execution quality.',
     }
   } finally {
     observations.close()
