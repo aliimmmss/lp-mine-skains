@@ -8,6 +8,10 @@ import {
 } from './registry.js'
 
 export {
+  createViemPoolCreatedEventSource,
+  normalizePoolCreatedLog,
+} from './event-source.js'
+export {
   createRobinhoodPublicClient,
   createViemReadClient,
   robinhoodChain,
