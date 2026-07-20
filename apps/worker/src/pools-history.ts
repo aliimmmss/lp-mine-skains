@@ -1,9 +1,5 @@
 import { analyzePoolHistory, type PoolHistoryAnalysis } from '@lp-mine/core'
-import {
-  ROBINHOOD_WETH_USDG_POOLS,
-  SqlitePoolObservationStore,
-  type PoolSnapshot,
-} from '@lp-mine/robinhood-univ3'
+import { ROBINHOOD_WETH_USDG_POOLS, SqlitePoolObservationStore, type PoolSnapshot } from '@lp-mine/robinhood-univ3'
 import { pathToFileURL } from 'node:url'
 import { readPoolHistoryReportConfig, type PoolHistoryReportConfig } from './pools-history-config.js'
 
