@@ -8,6 +8,6 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@lp-mine/core": "workspace:*"
+    "@lp-mine/core": "*"
   }
 }
