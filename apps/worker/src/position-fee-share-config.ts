@@ -8,9 +8,9 @@ export type PositionFeeShareReportConfig = {
   positionLiquidity: bigint
   windowSeconds: number
   limit: number
-  realizedFees: { amount0: bigint; amount1: bigint } | null
-  costs: readonly PositionCostEntry[]
-  costsSupplied: boolean
+  realizedFees?: { amount0: bigint; amount1: bigint } | null
+  costs?: readonly PositionCostEntry[]
+  costsSupplied?: boolean
 }
 
 export function readPositionFeeShareReportConfig(
