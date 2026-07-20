@@ -153,6 +153,7 @@ describe('position performance report', () => {
       }),
     )
     expect(report.status).toBe('complete')
+    expect(report.warnings).toEqual([])
     expect(report.totalMatchingSwaps).toBe(2)
     expect(report.scenarios.map((scenario) => scenario.name)).toEqual(['lower', 'endpoint', 'upper'])
     expect(report.realized?.fees1).toBe(100n)
