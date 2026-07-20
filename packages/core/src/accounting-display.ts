@@ -99,11 +99,7 @@ export function formatHumanTokenPrice(
   )
 }
 
-function inventoryDisplay(
-  inventory: PositionInventory,
-  token0: TokenRef,
-  token1: TokenRef,
-): PositionInventoryDisplay {
+function inventoryDisplay(inventory: PositionInventory, token0: TokenRef, token1: TokenRef): PositionInventoryDisplay {
   return {
     amount0: formatTokenAmountBaseUnits(inventory.amount0, token0.decimals),
     amount1: formatTokenAmountBaseUnits(inventory.amount1, token1.decimals),
@@ -152,10 +148,7 @@ export function formatPositionCostAccounting(
       amount1: formatTokenAmountBaseUnits(cost.amount1, token1.decimals),
       valueToken1: formatTokenValueBaseUnits(cost.valueToken1BaseUnits, token1.decimals),
     })),
-    grossNetVsHodlToken1: formatTokenValueBaseUnits(
-      accounting.grossNetVsHodlToken1BaseUnits,
-      token1.decimals,
-    ),
+    grossNetVsHodlToken1: formatTokenValueBaseUnits(accounting.grossNetVsHodlToken1BaseUnits, token1.decimals),
     totalCostToken1: formatTokenValueBaseUnits(accounting.totalCostToken1BaseUnits, token1.decimals),
     netAfterCostsVsHodlToken1: formatTokenValueBaseUnits(
       accounting.netAfterCostsVsHodlToken1BaseUnits,
@@ -175,10 +168,7 @@ export function formatPositionHistoryAnalysis(
     timeInRange: formatRatio(analysis.timeInRange, 6),
     inventoryTurnover0: formatTokenAmountBaseUnits(analysis.inventoryTurnover0BaseUnits, token0.decimals),
     inventoryTurnover1: formatTokenAmountBaseUnits(analysis.inventoryTurnover1BaseUnits, token1.decimals),
-    maximumDrawdownToken1: formatTokenValueBaseUnits(
-      analysis.maximumDrawdownToken1BaseUnits,
-      token1.decimals,
-    ),
+    maximumDrawdownToken1: formatTokenValueBaseUnits(analysis.maximumDrawdownToken1BaseUnits, token1.decimals),
     maximumDrawdownRate: formatRatio(analysis.maximumDrawdownRate, 6),
     finalAccounting: formatLpVsHodlAnalysis(finalPoint.accounting, token0, token1),
   }
