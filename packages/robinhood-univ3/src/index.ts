@@ -17,7 +17,7 @@ export type {
   SyncResult,
 } from './indexer.js'
 export { SqlitePoolObservationStore } from './observation-store.js'
-export type { PoolObservationQuery } from './observation-store.js'
+export type { PoolObservationOrder, PoolObservationQuery } from './observation-store.js'
 export {
   ROBINHOOD_CHAIN_ID,
   ROBINHOOD_TOKENS,
