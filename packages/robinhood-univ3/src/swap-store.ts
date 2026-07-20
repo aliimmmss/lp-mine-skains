@@ -48,6 +48,7 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
   }
 
   async load(): Promise<IndexCheckpoint | null> {
+    await Promise.resolve()
     const row = this.#database
       .prepare(
         `
@@ -81,6 +82,7 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
   }
 
   async save(checkpoint: IndexCheckpoint): Promise<void> {
+    await Promise.resolve()
     this.#database
       .prepare(
         `
@@ -103,6 +105,7 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
   }
 
   async replaceBlock(block: BlockHeader, events: readonly IndexedSwap[]): Promise<void> {
+    await Promise.resolve()
     this.#database.exec('BEGIN IMMEDIATE')
     try {
       this.#database.prepare('DELETE FROM swap_events WHERE block_number = ?').run(block.number.toString())
@@ -142,6 +145,7 @@ export class SqliteSwapIndexStore implements CheckpointStore, SwapEventSink {
   }
 
   async deleteFromBlock(blockNumber: bigint): Promise<void> {
+    await Promise.resolve()
     this.#database.exec('BEGIN IMMEDIATE')
     try {
       this.#database
