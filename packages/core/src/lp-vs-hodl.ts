@@ -24,6 +24,7 @@ export type LpVsHodlInput = {
 }
 
 export type LpVsHodlAnalysis = {
+  pair: string
   entryInventory: PositionInventory
   exitInventory: PositionInventory
   fees: PositionInventory
@@ -57,19 +58,26 @@ function ratio(numerator: bigint, denominator: bigint): ExactRatio {
 }
 
 function add(left: ExactRatio, right: ExactRatio): ExactRatio {
-  return ratio(left.numerator * right.denominator + right.numerator * left.denominator, left.denominator * right.denominator)
+  return ratio(
+    left.numerator * right.denominator + right.numerator * left.denominator,
+    left.denominator * right.denominator,
+  )
 }
 
 function subtract(left: ExactRatio, right: ExactRatio): ExactRatio {
-  return ratio(left.numerator * right.denominator - right.numerator * left.denominator, left.denominator * right.denominator)
+  return ratio(
+    left.numerator * right.denominator - right.numerator * left.denominator,
+    left.denominator * right.denominator,
+  )
 }
 
 export function tickToSqrtPriceX96(tick: number): bigint {
   if (!Number.isInteger(tick) || tick < MIN_UNISWAP_V3_TICK || tick > MAX_UNISWAP_V3_TICK) {
     throw new RangeError('Tick is outside Uniswap v3 bounds')
   }
-  let absoluteTick = BigInt(tick < 0 ? -tick : tick)
+  const absoluteTick = BigInt(tick < 0 ? -tick : tick)
   let result = (absoluteTick & 1n) !== 0n ? 0xfffcb933bd6fad37aa2d162d1a594001n : 1n << 128n
+
   const factors: readonly [bigint, bigint][] = [
     [2n, 0xfff97272373d413259a46990580e213an],
     [4n, 0xfff2e50f5f656932ef12357cf3c7fdccn],
@@ -104,11 +112,20 @@ export function amountsForLiquidity(
   sqrtPriceUpperX96: bigint,
   liquidity: bigint,
 ): PositionInventory {
-  if (sqrtPriceLowerX96 <= 0n || sqrtPriceLowerX96 >= sqrtPriceUpperX96) throw new RangeError('Invalid price bounds')
+  if (sqrtPriceLowerX96 <= 0n || sqrtPriceLowerX96 >= sqrtPriceUpperX96) {
+    throw new RangeError('Invalid price bounds')
+  }
   if (sqrtPriceX96 <= 0n) throw new RangeError('sqrtPriceX96 must be positive')
   if (liquidity < 0n) throw new RangeError('Liquidity must be non-negative')
+
   if (sqrtPriceX96 <= sqrtPriceLowerX96) {
-    return { amount0: (liquidity * (sqrtPriceUpperX96 - sqrtPriceLowerX96) * Q96) / sqrtPriceUpperX96 / sqrtPriceLowerX96, amount1: 0n }
+    return {
+      amount0:
+        (liquidity * (sqrtPriceUpperX96 - sqrtPriceLowerX96) * Q96) /
+        sqrtPriceUpperX96 /
+        sqrtPriceLowerX96,
+      amount1: 0n,
+    }
   }
   if (sqrtPriceX96 < sqrtPriceUpperX96) {
     return {
@@ -128,17 +145,23 @@ export function analyzeLpVsHodl(input: LpVsHodlInput): LpVsHodlAnalysis {
   if (input.tickLower >= input.tickUpper) throw new RangeError('tickLower must be less than tickUpper')
   if (input.liquidity <= 0n) throw new RangeError('Liquidity must be positive')
   if ((input.fees0 ?? 0n) < 0n || (input.fees1 ?? 0n) < 0n) throw new RangeError('Fees must be non-negative')
+
   const lower = tickToSqrtPriceX96(input.tickLower)
   const upper = tickToSqrtPriceX96(input.tickUpper)
   const entryInventory = amountsForLiquidity(input.entrySqrtPriceX96, lower, upper, input.liquidity)
   const exitInventory = amountsForLiquidity(input.exitSqrtPriceX96, lower, upper, input.liquidity)
   const fees = { amount0: input.fees0 ?? 0n, amount1: input.fees1 ?? 0n }
-  const exitInventoryWithFees = { amount0: exitInventory.amount0 + fees.amount0, amount1: exitInventory.amount1 + fees.amount1 }
+  const exitInventoryWithFees = {
+    amount0: exitInventory.amount0 + fees.amount0,
+    amount1: exitInventory.amount1 + fees.amount1,
+  }
   const lpPrincipalValueToken1BaseUnits = token1Value(exitInventory, input.exitSqrtPriceX96)
   const hodlValueToken1BaseUnits = token1Value(entryInventory, input.exitSqrtPriceX96)
   const feeValueToken1BaseUnits = token1Value(fees, input.exitSqrtPriceX96)
   const lpValueWithFeesToken1BaseUnits = add(lpPrincipalValueToken1BaseUnits, feeValueToken1BaseUnits)
+
   return {
+    pair: `${input.token0.symbol}/${input.token1.symbol}`,
     entryInventory,
     exitInventory,
     fees,
@@ -150,6 +173,7 @@ export function analyzeLpVsHodl(input: LpVsHodlInput): LpVsHodlAnalysis {
     feeValueToken1BaseUnits,
     lpValueWithFeesToken1BaseUnits,
     netVsHodlToken1BaseUnits: subtract(lpValueWithFeesToken1BaseUnits, hodlValueToken1BaseUnits),
-    disclaimer: 'This accounting excludes gas, slippage, rebalancing, incentives, protocol fees, taxes, and execution risk. Supplied fee amounts are treated as external evidence, not inferred realized fees.',
+    disclaimer:
+      'This accounting excludes gas, slippage, rebalancing, incentives, protocol fees, taxes, and execution risk. Supplied fee amounts are treated as external evidence, not inferred realized fees.',
   }
 }
