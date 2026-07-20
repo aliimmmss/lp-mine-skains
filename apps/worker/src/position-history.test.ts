@@ -135,6 +135,9 @@ describe('position history report', () => {
     expect(report.scenarios[0]?.display.timeInRange).toBe('0.333333')
     expect(report.scenarios[0]?.display.finalAccounting.token0Symbol).toBe('WETH')
     expect(report.scenarios[0]?.display.finalAccounting.token1Symbol).toBe('USDG')
+    expect(report.scenarios[0]?.display.timeInRange).toBe('0.333333')
+    expect(report.scenarios[0]?.display.finalAccounting.token0Symbol).toBe('WETH')
+    expect(report.scenarios[0]?.display.finalAccounting.token1Symbol).toBe('USDG')
     expect(report.scenarios[1]?.analysis.points.at(-1)?.cumulativeFees.amount0).toBeGreaterThanOrEqual(0n)
     expect(report.scenarios[2]?.analysis.points.at(-1)?.cumulativeFees.amount0).toBeGreaterThanOrEqual(
       report.scenarios[1]!.analysis.points.at(-1)!.cumulativeFees.amount0,
