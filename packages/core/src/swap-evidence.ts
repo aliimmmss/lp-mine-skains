@@ -126,7 +126,8 @@ export function analyzeSwapEvidence(input: SwapEvidenceInput): SwapEvidenceAnaly
   if (input.observations.length === 0) throw new RangeError('At least one swap observation is required')
 
   const observations = [...input.observations].sort((left, right) => {
-    if (left.observedAt.getTime() !== right.observedAt.getTime()) return left.observedAt.getTime() - right.observedAt.getTime()
+    if (left.observedAt.getTime() !== right.observedAt.getTime())
+      return left.observedAt.getTime() - right.observedAt.getTime()
     return left.blockNumber < right.blockNumber ? -1 : left.blockNumber > right.blockNumber ? 1 : 0
   })
 
@@ -139,7 +140,8 @@ export function analyzeSwapEvidence(input: SwapEvidenceInput): SwapEvidenceAnaly
 
   for (const observation of observations) {
     if (Number.isNaN(observation.observedAt.getTime())) throw new RangeError('Swap timestamps must be valid')
-    if (observation.amount0 === 0n && observation.amount1 === 0n) throw new RangeError('Swap token deltas cannot both be zero')
+    if (observation.amount0 === 0n && observation.amount1 === 0n)
+      throw new RangeError('Swap token deltas cannot both be zero')
     if (observation.amount0 > 0n) {
       token0Input += observation.amount0
       token0InputSwapCount += 1
