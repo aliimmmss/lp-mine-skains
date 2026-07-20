@@ -195,7 +195,8 @@ function cumulativeHistoryObservations(
   checkpoints: readonly { analysis: PositionFeeShareAnalysis }[],
   scenario: 'lower' | 'endpoint' | 'upper',
 ): PositionHistoryObservationInput[] {
-  if (observations.length !== checkpoints.length) throw new Error('Fee timeline checkpoint count does not match observations')
+  if (observations.length !== checkpoints.length)
+    throw new Error('Fee timeline checkpoint count does not match observations')
   return observations.map((observation, index) => {
     const fees = scenarioFees(checkpoints[index]!.analysis, scenario)
     return {
