@@ -12,7 +12,8 @@
     "swaps:scan": "node --enable-source-maps dist/swaps-scan.js",
     "swaps:evidence": "node --enable-source-maps dist/swaps-evidence.js",
     "position:fee-share": "node --enable-source-maps dist/position-fee-share.js",
-    "position:performance": "node --enable-source-maps dist/position-performance.js"
+    "position:performance": "node --enable-source-maps dist/position-performance.js",
+    "position:history": "node --enable-source-maps dist/position-history.js"
   },
   "dependencies": {
     "@lp-mine/core": "*",
