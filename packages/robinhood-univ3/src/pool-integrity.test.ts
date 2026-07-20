@@ -40,6 +40,7 @@ function snapshot(overrides: Partial<PoolSnapshot['value']> = {}): PoolSnapshot 
 
 describe('canonical pool integrity', () => {
   it('accepts aligned position ticks for every canonical tier', () => {
+    expect(canonicalPoolForFeeTier(500)).toMatchObject({ feeTier: 500, tickSpacing: 10 })
     expect(validateCanonicalPositionRange({ feeTier: 100, tickLower: -1, tickUpper: 1 }).tickSpacing).toBe(1)
     expect(validateCanonicalPositionRange({ feeTier: 500, tickLower: -100, tickUpper: 100 }).tickSpacing).toBe(10)
     expect(validateCanonicalPositionRange({ feeTier: 3000, tickLower: -120, tickUpper: 120 }).tickSpacing).toBe(60)
