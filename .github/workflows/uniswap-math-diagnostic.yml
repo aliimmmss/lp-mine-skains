@@ -1,0 +1,26 @@
+name: Uniswap Math Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture formatting patch
+        run: |
+          npx prettier --write packages/core/src/lp-vs-hodl.ts packages/core/src/lp-vs-hodl.test.ts packages/core/src/index.ts
+          git diff -- . ':!.github/workflows/uniswap-math-diagnostic.yml' > prettier.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uniswap-math-diagnostics
+          path: prettier.patch
