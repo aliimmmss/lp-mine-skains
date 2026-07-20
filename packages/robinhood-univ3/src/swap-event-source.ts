@@ -1,3 +1,4 @@
+import { classifyCanonicalSwap } from '@lp-mine/core'
 import { getAddress, parseAbiItem, type Address, type Hex, type PublicClient } from 'viem'
 import type { BlockHeader } from './indexer.js'
 import type { IndexedSwap, SwapEventSource } from './swap-indexer.js'
@@ -89,7 +90,7 @@ export function normalizeSwapLog(log: {
   if (log.sqrtPriceX96 <= 0n || log.activeLiquidity < 0n || log.logIndex < 0) {
     throw new Error('Swap log contains invalid numeric fields')
   }
-  if (log.amount0 === 0n && log.amount1 === 0n) throw new Error('Swap log contains zero token deltas')
+  classifyCanonicalSwap(log.amount0, log.amount1)
 
   return {
     poolAddress: getAddress(log.poolAddress),
