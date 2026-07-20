@@ -8,7 +8,9 @@ import {
   ROBINHOOD_WETH_USDG_POOLS,
   SqlitePoolObservationStore,
   SqliteSwapIndexStore,
+  inspectSwapEvidenceCoverage,
   type PoolSnapshot,
+  type SwapEvidenceCoverage,
 } from '@lp-mine/robinhood-univ3'
 import { pathToFileURL } from 'node:url'
 import { readPositionFeeShareReportConfig, type PositionFeeShareReportConfig } from './position-fee-share-config.js'
@@ -27,6 +29,7 @@ export type PositionPerformanceReport = {
   poolAddress: `0x${string}`
   feeTier: number
   requestedWindowSeconds: number
+  coverage: SwapEvidenceCoverage
   entryObservation: PoolSnapshot | null
   exitObservation: PoolSnapshot | null
   swapEvidence: PositionFeeShareAnalysis | null
@@ -41,11 +44,12 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
   const pool = ROBINHOOD_WETH_USDG_POOLS.find((candidate) => candidate.feeTier === config.feeTier)
   if (!pool) throw new Error(`Unsupported canonical fee tier: ${config.feeTier}`)
 
+  const coverage = inspectSwapEvidenceCoverage(config.databasePath, pool.poolAddress)
   const observations = new SqlitePoolObservationStore(config.databasePath)
   const swaps = new SqliteSwapIndexStore(config.databasePath)
   try {
     const allObservations = observations.listObservations(pool.poolAddress, { limit: 10_000 })
-    const latestSwapTime = swaps.latestSwapTime()
+    const latestSwapTime = coverage.latestTimestamp
     const eligibleObservations = latestSwapTime
       ? allObservations.filter((observation) => observation.block.observedAt <= latestSwapTime)
       : []
@@ -60,6 +64,9 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
     const warnings: string[] = []
 
     if (!latestSwapTime) warnings.push('No timestamped swap evidence is available.')
+    if (coverage.missingTimestampRows > 0) {
+      warnings.push(`${coverage.missingTimestampRows} swap rows lack block timestamps and are excluded.`)
+    }
     if (allObservations.length === 10_000) warnings.push('Pool observation query reached its 10000-row limit.')
     if (windowObservations.some((observation) => observation.quality !== 'complete')) {
       warnings.push('One or more selected pool observations are partial or stale.')
@@ -67,7 +74,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
     for (const observation of windowObservations) warnings.push(...observation.warnings)
 
     if (!entryObservation || !exitObservation || entryObservation === exitObservation) {
-      return emptyReport(config, pool.poolAddress, entryObservation, exitObservation, warnings)
+      return emptyReport(config, pool.poolAddress, coverage, entryObservation, exitObservation, warnings)
     }
 
     const result = swaps.listSwapsByTime(pool.poolAddress, {
@@ -78,7 +85,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
     if (result.truncated) warnings.push('Swap evidence was truncated by the configured row limit.')
     if (result.swaps.length === 0) {
       warnings.push('No swaps exist between the selected entry and exit observations.')
-      return emptyReport(config, pool.poolAddress, entryObservation, exitObservation, warnings)
+      return emptyReport(config, pool.poolAddress, coverage, entryObservation, exitObservation, warnings)
     }
 
     const swapEvidence = estimatePositionFeeShare({
@@ -89,8 +96,11 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       positionLiquidity: config.positionLiquidity,
       token0Decimals: entryObservation.value.token0.decimals,
       token1Decimals: entryObservation.value.token1.decimals,
+      initialTick: entryObservation.value.tick,
       swaps: result.swaps.map((swap) => ({
         blockNumber: swap.blockNumber,
+        transactionHash: swap.transactionHash,
+        logIndex: swap.logIndex,
         observedAt: swap.observedAt,
         amount0: swap.amount0,
         amount1: swap.amount1,
@@ -138,6 +148,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       poolAddress: pool.poolAddress,
       feeTier: config.feeTier,
       requestedWindowSeconds: config.windowSeconds,
+      coverage,
       entryObservation,
       exitObservation,
       swapEvidence,
@@ -146,7 +157,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
       returnedSwaps: result.swaps.length,
       warnings: [...new Set(warnings)],
       disclaimer:
-        'This report combines bounded endpoint-based fee evidence with deterministic LP-versus-HODL accounting. It is not realized profit and excludes gas, slippage, rebalancing, incentives, taxes, and execution risk.',
+        'This report combines validated canonical swap evidence with deterministic LP-versus-HODL accounting. It is not realized profit and excludes gas, slippage, rebalancing, incentives, taxes, and execution risk.',
     }
   } finally {
     observations.close()
@@ -157,6 +168,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
 function emptyReport(
   config: PositionFeeShareReportConfig,
   poolAddress: `0x${string}`,
+  coverage: SwapEvidenceCoverage,
   entryObservation: PoolSnapshot | null,
   exitObservation: PoolSnapshot | null,
   warnings: readonly string[],
@@ -168,6 +180,7 @@ function emptyReport(
     poolAddress,
     feeTier: config.feeTier,
     requestedWindowSeconds: config.windowSeconds,
+    coverage,
     entryObservation,
     exitObservation,
     swapEvidence: null,
