@@ -18,6 +18,11 @@ import type { PositionFeeShareReportConfig } from './position-fee-share-config.j
 const directories: string[] = []
 const pool = ROBINHOOD_WETH_USDG_POOLS.find((candidate) => candidate.feeTier === 500)!
 const hash = (value: number): `0x${string}` => `0x${value.toString(16).padStart(64, '0')}`
+const provenance = {
+  source: 'wallet-reconciliation',
+  observedAt: new Date('2026-07-20T10:30:00.000Z'),
+  reference: 'batch-42',
+}
 
 function databasePath(): string {
   const directory = mkdtempSync(join(tmpdir(), 'lp-mine-position-performance-'))
@@ -73,6 +78,49 @@ const config = (path: string, overrides: Partial<PositionFeeShareReportConfig> =
   ...overrides,
 })
 
+async function seedEvidence(path: string): Promise<void> {
+  const observations = new SqlitePoolObservationStore(path)
+  observations.saveSnapshots([
+    snapshot(10n, '2026-07-20T10:00:00.000Z', 0),
+    snapshot(20n, '2026-07-20T10:30:00.000Z', 20),
+  ])
+  observations.close()
+  const swaps = new SqliteSwapIndexStore(path)
+  await swaps.replaceBlock(header(15n, '2026-07-20T10:15:00.000Z'), [
+    normalizeSwapLog({
+      poolAddress: pool.poolAddress,
+      sender: '0x0000000000000000000000000000000000000001',
+      recipient: '0x0000000000000000000000000000000000000002',
+      amount0: 1_000_000_000_000_000_000n,
+      amount1: -1_000_000n,
+      sqrtPriceX96: 1n << 96n,
+      activeLiquidity: 900_000n,
+      tick: 10,
+      blockNumber: 15n,
+      blockHash: hash(15),
+      transactionHash: hash(100),
+      logIndex: 1,
+    }),
+  ])
+  await swaps.replaceBlock(header(20n, '2026-07-20T10:30:00.000Z'), [
+    normalizeSwapLog({
+      poolAddress: pool.poolAddress,
+      sender: '0x0000000000000000000000000000000000000001',
+      recipient: '0x0000000000000000000000000000000000000002',
+      amount0: -1n,
+      amount1: 1n,
+      sqrtPriceX96: 1n << 96n,
+      activeLiquidity: 900_000n,
+      tick: 20,
+      blockNumber: 20n,
+      blockHash: hash(20),
+      transactionHash: hash(101),
+      logIndex: 0,
+    }),
+  ])
+  swaps.close()
+}
+
 afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
@@ -93,49 +141,35 @@ describe('position performance report', () => {
     expect(report.warnings.join(' ')).toMatch(/timestamped swap/)
   })
 
-  it('keeps estimates separate and applies explicit realized fees and costs', async () => {
+  it('keeps estimates separate and preserves complete realized-fee and cost provenance', async () => {
     const path = databasePath()
-    const observations = new SqlitePoolObservationStore(path)
-    observations.saveSnapshots([
-      snapshot(10n, '2026-07-20T10:00:00.000Z', 0),
-      snapshot(20n, '2026-07-20T10:30:00.000Z', 20),
-    ])
-    observations.close()
+    await seedEvidence(path)
 
-    const swaps = new SqliteSwapIndexStore(path)
-    await swaps.replaceBlock(header(15n, '2026-07-20T10:15:00.000Z'), [
-      normalizeSwapLog({
-        poolAddress: pool.poolAddress,
-        sender: '0x0000000000000000000000000000000000000001',
-        recipient: '0x0000000000000000000000000000000000000002',
-        amount0: 1_000_000_000_000_000_000n,
-        amount1: -1_000_000n,
-        sqrtPriceX96: 1n << 96n,
-        activeLiquidity: 900_000n,
-        tick: 10,
-        blockNumber: 15n,
-        blockHash: hash(15),
-        transactionHash: hash(100),
-        logIndex: 1,
+    const report = buildPositionPerformanceReport(
+      config(path, {
+        realizedFees: { amount0: 0n, amount1: 100n, provenance },
+        costsSupplied: true,
+        costs: [{ category: 'gas', amount0: 0n, amount1: 25n, provenance }],
       }),
-    ])
-    await swaps.replaceBlock(header(20n, '2026-07-20T10:30:00.000Z'), [
-      normalizeSwapLog({
-        poolAddress: pool.poolAddress,
-        sender: '0x0000000000000000000000000000000000000001',
-        recipient: '0x0000000000000000000000000000000000000002',
-        amount0: -1n,
-        amount1: 1n,
-        sqrtPriceX96: 1n << 96n,
-        activeLiquidity: 900_000n,
-        tick: 20,
-        blockNumber: 20n,
-        blockHash: hash(20),
-        transactionHash: hash(101),
-        logIndex: 0,
-      }),
-    ])
-    swaps.close()
+    )
+    expect(report.status).toBe('complete')
+    expect(report.totalMatchingSwaps).toBe(2)
+    expect(report.scenarios.map((scenario) => scenario.name)).toEqual(['lower', 'endpoint', 'upper'])
+    expect(report.realized?.fees1).toBe(100n)
+    expect(report.realized?.evidenceQuality).toBe('complete')
+    expect(report.realized?.provenance).toEqual(provenance)
+    expect(report.realized?.accounting.netVsHodlToken1BaseUnits).toEqual({ numerator: 100n, denominator: 1n })
+    expect(report.realized?.costAccounting?.totalCostToken1BaseUnits).toEqual({ numerator: 25n, denominator: 1n })
+    expect(report.realized?.costAccounting?.evidenceQuality).toBe('complete')
+    expect(report.realized?.costAccounting?.netAfterCostsVsHodlToken1BaseUnits).toEqual({
+      numerator: 75n,
+      denominator: 1n,
+    })
+  })
+
+  it('marks amount-only external evidence as partial', async () => {
+    const path = databasePath()
+    await seedEvidence(path)
 
     const report = buildPositionPerformanceReport(
       config(path, {
@@ -144,44 +178,16 @@ describe('position performance report', () => {
         costs: [{ category: 'gas', amount0: 0n, amount1: 25n }],
       }),
     )
-    expect(report.status).toBe('complete')
-    expect(report.totalMatchingSwaps).toBe(2)
-    expect(report.scenarios.map((scenario) => scenario.name)).toEqual(['lower', 'endpoint', 'upper'])
-    expect(report.realized?.fees1).toBe(100n)
-    expect(report.realized?.accounting.netVsHodlToken1BaseUnits).toEqual({ numerator: 100n, denominator: 1n })
-    expect(report.realized?.costAccounting?.totalCostToken1BaseUnits).toEqual({ numerator: 25n, denominator: 1n })
-    expect(report.realized?.costAccounting?.netAfterCostsVsHodlToken1BaseUnits).toEqual({
-      numerator: 75n,
-      denominator: 1n,
-    })
+
+    expect(report.status).toBe('partial')
+    expect(report.realized?.evidenceQuality).toBe('partial')
+    expect(report.realized?.costAccounting?.evidenceQuality).toBe('partial')
+    expect(report.warnings.join(' ')).toMatch(/provenance/)
   })
 
   it('marks missing cost evidence as partial', async () => {
     const path = databasePath()
-    const observations = new SqlitePoolObservationStore(path)
-    observations.saveSnapshots([
-      snapshot(10n, '2026-07-20T10:00:00.000Z', 0),
-      snapshot(20n, '2026-07-20T10:30:00.000Z', 20),
-    ])
-    observations.close()
-    const swaps = new SqliteSwapIndexStore(path)
-    await swaps.replaceBlock(header(20n, '2026-07-20T10:30:00.000Z'), [
-      normalizeSwapLog({
-        poolAddress: pool.poolAddress,
-        sender: '0x0000000000000000000000000000000000000001',
-        recipient: '0x0000000000000000000000000000000000000002',
-        amount0: -1n,
-        amount1: 1n,
-        sqrtPriceX96: 1n << 96n,
-        activeLiquidity: 900_000n,
-        tick: 20,
-        blockNumber: 20n,
-        blockHash: hash(20),
-        transactionHash: hash(102),
-        logIndex: 0,
-      }),
-    ])
-    swaps.close()
+    await seedEvidence(path)
 
     const report = buildPositionPerformanceReport(config(path))
     expect(report.status).toBe('partial')
