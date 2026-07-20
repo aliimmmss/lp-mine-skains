@@ -15,20 +15,18 @@ jobs:
         check: [format, lint, typecheck, test, build]
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.13.1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install --no-frozen-lockfile
+          cache: npm
+      - run: npm install
       - if: matrix.check == 'format'
-        run: pnpm format:check
+        run: npm run format:check
       - if: matrix.check == 'lint'
-        run: pnpm lint
+        run: npm run lint
       - if: matrix.check == 'typecheck'
-        run: pnpm typecheck
+        run: npm run typecheck
       - if: matrix.check == 'test'
-        run: pnpm test
+        run: npm test
       - if: matrix.check == 'build'
-        run: pnpm build
+        run: npm run build
