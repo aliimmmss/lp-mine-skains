@@ -13,6 +13,17 @@ export {
   robinhoodChain,
 } from './live-client.js'
 export type { LiveClientOptions, PoolCreatedLog } from './live-client.js'
+export { syncPoolCreatedEvents } from './indexer.js'
+export type {
+  BlockHeader,
+  CheckpointStore,
+  IndexCheckpoint,
+  IndexedPoolCreated,
+  PoolCreatedEventSource,
+  PoolEventSink,
+  SyncOptions,
+  SyncResult,
+} from './indexer.js'
 export { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3, SUPPORTED_FEE_TIERS } from './registry.js'
 export type { SupportedFeeTier } from './registry.js'
 
