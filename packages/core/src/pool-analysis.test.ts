@@ -70,16 +70,12 @@ describe('analyzePool', () => {
   })
 
   it('flags zero liquidity, stale data, and incomplete sources', () => {
-    const analysis = analyzePool(
-      pool({ activeLiquidity: 0n, quality: 'partial' }),
-      { now: new Date('2026-07-20T10:10:00.000Z'), staleAfterSeconds: 300 },
-    )
+    const analysis = analyzePool(pool({ activeLiquidity: 0n, quality: 'partial' }), {
+      now: new Date('2026-07-20T10:10:00.000Z'),
+      staleAfterSeconds: 300,
+    })
 
-    expect(analysis.riskFlags).toEqual([
-      'zero-active-liquidity',
-      'stale-snapshot',
-      'incomplete-source',
-    ])
+    expect(analysis.riskFlags).toEqual(['zero-active-liquidity', 'stale-snapshot', 'incomplete-source'])
   })
 })
 
@@ -88,8 +84,16 @@ describe('compareFeeTierPools', () => {
     const report = compareFeeTierPools(
       [
         pool({ feeTier: 3_000, activeLiquidity: 50n }),
-        pool({ feeTier: 500, activeLiquidity: 200n, poolAddress: '0x0000000000000000000000000000000000000020' }),
-        pool({ feeTier: 100, activeLiquidity: 200n, poolAddress: '0x0000000000000000000000000000000000000030' }),
+        pool({
+          feeTier: 500,
+          activeLiquidity: 200n,
+          poolAddress: '0x0000000000000000000000000000000000000020',
+        }),
+        pool({
+          feeTier: 100,
+          activeLiquidity: 200n,
+          poolAddress: '0x0000000000000000000000000000000000000030',
+        }),
       ],
       { now: new Date('2026-07-20T10:01:00.000Z') },
     )
