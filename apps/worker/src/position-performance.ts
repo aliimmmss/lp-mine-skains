@@ -195,6 +195,7 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
             ? []
             : ['Realized fee evidence has no provenance source or observation timestamp.']
           warnings.push(...realizedWarnings)
+          const costAccounting = withCosts(accounting)
           return {
             fees0: realizedFees.amount0,
             fees1: realizedFees.amount1,
@@ -203,11 +204,8 @@ export function buildPositionPerformanceReport(config: PositionFeeShareReportCon
             warnings: realizedWarnings,
             accounting,
             display: formatLpVsHodlAnalysis(accounting, token0, token1),
-            costAccounting: withCosts(accounting),
-            costDisplay: (() => {
-              const costAccounting = withCosts(accounting)
-              return costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null
-            })(),
+            costAccounting,
+            costDisplay: costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null,
           }
         })()
       : null
