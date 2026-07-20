@@ -1,6 +1,6 @@
 import { getAddress } from 'viem'
 import type { PoolSnapshot } from './index.js'
-import { ROBINHOOD_CHAIN_ID, ROBINHOOD_TOKENS, ROBINHOOD_WETH_USDG_POOLS, type SupportedFeeTier } from './registry.js'
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_TOKENS, ROBINHOOD_WETH_USDG_POOLS } from './registry.js'
 
 export type CanonicalPool = (typeof ROBINHOOD_WETH_USDG_POOLS)[number]
 
@@ -41,7 +41,7 @@ export function assertCanonicalPoolSnapshot(snapshot: PoolSnapshot, expected: Ca
     failures.push('token chain ID')
   }
   if (getAddress(value.poolAddress) !== expected.poolAddress) failures.push('pool address')
-  if (value.feeTier !== (expected.feeTier as SupportedFeeTier)) failures.push('fee tier')
+  if (value.feeTier !== expected.feeTier) failures.push('fee tier')
   if (value.tickSpacing !== expected.tickSpacing) failures.push('tick spacing')
   if (getAddress(value.token0.address) !== ROBINHOOD_TOKENS.wrappedNative) failures.push('token0 address')
   if (getAddress(value.token1.address) !== ROBINHOOD_TOKENS.usdg) failures.push('token1 address')
