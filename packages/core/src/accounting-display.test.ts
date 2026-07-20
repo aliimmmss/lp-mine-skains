@@ -32,6 +32,7 @@ describe('accounting display formatting', () => {
 
   it('formats signed rational token values', () => {
     expect(formatTokenValueBaseUnits({ numerator: -3_000_000n, denominator: 2n }, 6, 6)).toBe('-1.500000')
+    expect(formatTokenValueBaseUnits({ numerator: -500_000n, denominator: 1n }, 6, 6)).toBe('-0.500000')
   })
 
   it('converts raw base-unit price into human token units', () => {
