@@ -1,0 +1,73 @@
+name: Clean M2 worker display patch
+
+on:
+  push:
+    branches:
+      - feature/m2-worker-display
+    paths:
+      - .github/workflows/cleanup-m2-worker-display.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/m2-worker-display
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Clean generated patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          performance_test = Path('apps/worker/src/position-performance.test.ts')
+          text = performance_test.read_text()
+          text = text.replace(
+          "    expect(report.realized?.display.fees).toEqual({ amount0: '0', amount1: '0.0001' })\n    expect(report.realized?.display.token1Values.netVsHodl).toBe('0.000100')\n    expect(report.realized?.display.fees).toEqual({ amount0: '0', amount1: '0.0001' })\n    expect(report.realized?.display.token1Values.netVsHodl).toBe('0.000100')",
+          "    expect(report.realized?.display.fees).toEqual({ amount0: '0', amount1: '0.0001' })\n    expect(report.realized?.display.token1Values.netVsHodl).toBe('0.000100')"
+          )
+          text = text.replace(
+          "    expect(report.realized?.costDisplay?.totalCostToken1).toBe('0.000025')\n    expect(report.realized?.costDisplay?.totalCostToken1).toBe('0.000025')",
+          "    expect(report.realized?.costDisplay?.totalCostToken1).toBe('0.000025')"
+          )
+          performance_test.write_text(text)
+
+          history_test = Path('apps/worker/src/position-history.test.ts')
+          text = history_test.read_text()
+          repeated = "    expect(report.scenarios[0]?.display.timeInRange).toBe('0.333333')\n    expect(report.scenarios[0]?.display.finalAccounting.token0Symbol).toBe('WETH')\n    expect(report.scenarios[0]?.display.finalAccounting.token1Symbol).toBe('USDG')\n"
+          text = text.replace(repeated + repeated, repeated)
+          history_test.write_text(text)
+
+          performance = Path('apps/worker/src/position-performance.ts')
+          text = performance.read_text()
+          text = text.replace(
+          "          return {\n            fees0: realizedFees.amount0,",
+          "          const costAccounting = withCosts(accounting)\n          return {\n            fees0: realizedFees.amount0,"
+          )
+          text = text.replace(
+          "            costAccounting: withCosts(accounting),\n            costDisplay: (() => {\n              const costAccounting = withCosts(accounting)\n              return costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null\n            })(),",
+          "            costAccounting,\n            costDisplay: costAccounting ? formatPositionCostAccounting(costAccounting, token0, token1) : null,"
+          )
+          performance.write_text(text)
+          PY
+      - run: npm run format
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Commit cleanup and remove workflow
+        run: |
+          rm .github/workflows/cleanup-m2-worker-display.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/worker/src/position-performance.ts apps/worker/src/position-performance.test.ts apps/worker/src/position-history.test.ts .github/workflows/cleanup-m2-worker-display.yml
+          git commit -m "test(worker): clean display integration assertions"
+          git push
