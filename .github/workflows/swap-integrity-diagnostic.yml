@@ -1,0 +1,29 @@
+name: Swap Integrity Diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture diagnostics
+        run: |
+          npm test > test.txt 2>&1 || true
+          npx prettier --write packages/core/src packages/robinhood-univ3/src apps/worker/src
+          git diff -- . ':!.github/workflows/swap-integrity-diagnostic.yml' > prettier.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swap-integrity-diagnostics
+          path: |
+            test.txt
+            prettier.patch
