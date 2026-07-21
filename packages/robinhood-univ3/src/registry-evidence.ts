@@ -108,15 +108,16 @@ export const ROBINHOOD_REGISTRY_EVIDENCE = Object.freeze({
   sourceAgreement: true,
   executionEligible: false as const,
   executionBlockers: Object.freeze([
-    'The first supported write operation has not been selected or approved.',
-    'Allowed write selectors and argument policies are not pinned.',
-    'Upgradeability, admin controls, and verified-source provenance are not fully reviewed for every write-capable target.',
-    'Simulation, review-screen, cancellation, and incident-disable policies are not implemented.',
+    'WETH allowance revocation is provisionally selected for design review but is not approved or execution-eligible.',
+    'Allowed write selectors and argument policies are not pinned in executable policy.',
+    'WETH is upgradeable and its ultimate proxy administration chain remains unresolved.',
+    'Simulation, review-screen, cancellation, receipt reconciliation, and incident-disable policies are not implemented.',
   ]),
   references: Object.freeze([
     'https://docs.robinhood.com/chain/connecting/',
     'https://docs.robinhood.com/chain/contracts/',
     'https://github.com/aliimmmss/lp-mine-skains/issues/54#issuecomment-5032123113',
+    'https://github.com/aliimmmss/lp-mine-skains/issues/62',
   ]),
   entries,
 })
