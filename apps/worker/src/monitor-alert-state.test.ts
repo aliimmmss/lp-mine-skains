@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { MonitorAlert } from './monitor-health.js'
 import { SqliteMonitorAlertStateStore } from './monitor-alert-state.js'
@@ -42,6 +43,7 @@ describe('monitor alert state store', () => {
         status: 'active',
         message: 'Latest observation age is now 600s.',
         firstSeenAt,
+        occurrenceStartedAt: firstSeenAt,
         lastSeenAt: later,
         resolvedAt: null,
       })
@@ -63,6 +65,7 @@ describe('monitor alert state store', () => {
       const reopened = store.reconcile([alert], reopenedAt)[0]!
       expect(reopened.status).toBe('active')
       expect(reopened.firstSeenAt).toEqual(firstSeenAt)
+      expect(reopened.occurrenceStartedAt).toEqual(reopenedAt)
       expect(reopened.lastSeenAt).toEqual(reopenedAt)
       expect(reopened.resolvedAt).toBeNull()
       expect(reopened.acknowledgedAt).toBeNull()
@@ -80,6 +83,64 @@ describe('monitor alert state store', () => {
       expect(store.list('active')[0]?.acknowledgedAt).toEqual(later)
       store.reconcile([], resolvedAt)
       expect(store.acknowledge(alert.alertKey, reopenedAt)).toBe(false)
+    } finally {
+      store.close()
+    }
+  })
+
+  it('deduplicates delivery for one occurrence and allows a reopened occurrence', () => {
+    const store = new SqliteMonitorAlertStateStore(databasePath())
+    try {
+      const active = store.reconcile([alert], firstSeenAt)[0]!
+      expect(store.listPendingNotificationAlerts('telegram')).toHaveLength(1)
+      expect(store.recordNotificationDelivery('telegram', active, later, '101')).toBe(true)
+      expect(store.recordNotificationDelivery('telegram', active, later, '101')).toBe(false)
+      expect(store.listPendingNotificationAlerts('telegram')).toHaveLength(0)
+
+      store.reconcile([], resolvedAt)
+      store.reconcile([alert], reopenedAt)
+      expect(store.listPendingNotificationAlerts('telegram')).toHaveLength(1)
+    } finally {
+      store.close()
+    }
+  })
+
+  it('migrates legacy lifecycle rows to an explicit occurrence timestamp', () => {
+    const path = databasePath()
+    const database = new DatabaseSync(path)
+    database.exec(`
+      CREATE TABLE monitor_alert_state (
+        alert_key TEXT PRIMARY KEY,
+        severity TEXT NOT NULL,
+        code TEXT NOT NULL,
+        pool_address TEXT NOT NULL,
+        fee_tier INTEGER NOT NULL,
+        message TEXT NOT NULL,
+        status TEXT NOT NULL,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        resolved_at TEXT,
+        acknowledged_at TEXT
+      ) STRICT;
+      INSERT INTO monitor_alert_state VALUES (
+        '${alert.alertKey}',
+        '${alert.severity}',
+        '${alert.code}',
+        '${alert.poolAddress}',
+        ${alert.feeTier},
+        '${alert.message}',
+        'active',
+        '${firstSeenAt.toISOString()}',
+        '${later.toISOString()}',
+        NULL,
+        NULL
+      );
+    `)
+    database.close()
+
+    const store = new SqliteMonitorAlertStateStore(path)
+    try {
+      expect(store.get(alert.alertKey)?.occurrenceStartedAt).toEqual(firstSeenAt)
     } finally {
       store.close()
     }
