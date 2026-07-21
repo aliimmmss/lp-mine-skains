@@ -1,0 +1,28 @@
+name: Probe M4 v3 branch write
+
+on:
+  push:
+    branches:
+      - agent/m4-access-control-history-audit-v3b
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m4-access-control-history-audit-v3b
+      - name: Commit branch probe marker
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          printf '%s\n' 'branch workflow write verified' > .github/scripts/.m4-v3-branch-probe
+          rm .github/workflows/probe-m4-v3-branch-write.yml
+          git add --all
+          git commit -m "chore: verify v3 branch workflow write"
+          git push origin HEAD:agent/m4-access-control-history-audit-v3b
