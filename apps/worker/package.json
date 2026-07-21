@@ -18,7 +18,8 @@
     "monitor:reconcile": "node --enable-source-maps dist/monitor-reconcile.js",
     "monitor:dashboard": "node --enable-source-maps dist/monitor-dashboard.js",
     "monitor:acknowledge": "node --enable-source-maps dist/monitor-acknowledge.js",
-    "monitor:notify:telegram": "node --enable-source-maps dist/monitor-telegram-notify.js"
+    "monitor:notify:telegram": "node --enable-source-maps dist/monitor-telegram-notify.js",
+    "paper:weth-allowance": "node --enable-source-maps dist/weth-allowance-paper.js"
   },
   "dependencies": {
     "@lp-mine/core": "*",

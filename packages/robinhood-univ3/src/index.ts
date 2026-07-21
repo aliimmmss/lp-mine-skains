@@ -54,6 +54,25 @@ export type { IndexedSwap, SwapEventSink, SwapEventSource } from './swap-indexer
 export { SqliteSwapIndexStore } from './swap-store.js'
 export type { SwapTimeQuery, SwapTimeQueryResult, TimestampedIndexedSwap } from './swap-store.js'
 export { SqlitePoolIndexStore } from './sqlite-store.js'
+export {
+  WETH_ALLOWANCE_REVOCATION_OPERATION,
+  canonicalJson,
+  defaultWethAllowanceAuthorityPaperEvidence,
+  defaultWethAllowanceRegistryPaperEvidence,
+  evaluateWethAllowanceRevocationPaperMode,
+} from './weth-allowance-paper.js'
+export type {
+  NormalizedWethAllowancePaperIntent,
+  WethAllowanceAuthorityPaperEvidence,
+  WethAllowanceFreshness,
+  WethAllowancePaperCheck,
+  WethAllowancePaperDecision,
+  WethAllowancePaperInput,
+  WethAllowancePaperIntent,
+  WethAllowancePaperReport,
+  WethAllowanceReadEvidence,
+  WethAllowanceRegistryPaperEvidence,
+} from './weth-allowance-paper.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
@@ -135,11 +154,9 @@ export async function readVerifiedPoolSnapshot(args: {
     args.client.readToken(token1Address),
     args.client.getBlock(),
   ])
-
   if (state.sqrtPriceX96 <= 0n || state.activeLiquidity < 0n || state.tickSpacing <= 0) {
     throw new PoolVerificationError('Pool returned invalid state')
   }
-
   const observedAt = new Date(Number(block.timestamp) * 1_000)
   if (Number.isNaN(observedAt.getTime())) {
     throw new PoolVerificationError('Block timestamp is invalid')
