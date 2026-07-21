@@ -1,5 +1,6 @@
 /* global AbortSignal, fetch */
 import process from 'node:process'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { createHash } from 'node:crypto'
 import {
   createPublicClient,
@@ -23,6 +24,12 @@ const EXPECTED_PROXY_LENGTH = 2_202
 const EXPECTED_PROXY_HASH = '0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353'
 const CONFIRMATIONS = 12n
 const INITIAL_LOG_RANGE = 500_000n
+const LOG_REQUEST_DELAY_MS = 350
+const LOG_MAX_ATTEMPTS = 7
+const LOG_MAX_SPLIT_DEPTH = 12
+const LOG_MAX_REQUESTS = 500
+const LOG_MAX_DURATION_MS = 25 * 60 * 1_000
+const EXPECTED_EVENT_DIGEST = '0xd880dde31907ed8351ec66af46cc7f96afffbda565e67501b23f4f4dabdabd06'
 const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com/api/v2'
 const IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
 const ADMIN_SLOT = '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
@@ -224,28 +231,68 @@ async function archiveBoundary(label, url) {
   }
 }
 
-async function rawLogs(rpc, fromBlock, toBlock) {
-  return rpc.request({
-    method: 'eth_getLogs',
-    params: [
-      {
-        address: CONTROLLER,
-        fromBlock: toHex(fromBlock),
-        toBlock: toHex(toBlock),
-        topics: [EVENT_TOPICS],
-      },
-    ],
-  })
+function assertLogBudget(stats) {
+  if (stats.requests >= LOG_MAX_REQUESTS) throw new Error(`log-request-budget-exhausted:${LOG_MAX_REQUESTS}`)
+  if (Date.now() - stats.startedAt > LOG_MAX_DURATION_MS) {
+    throw new Error(`log-duration-budget-exhausted:${LOG_MAX_DURATION_MS}`)
+  }
 }
 
-async function logsAdaptive(rpc, fromBlock, toBlock) {
+function isRateLimitError(message) {
+  return /(?:status:\s*429|too many requests|rate.?limit)/i.test(message)
+}
+
+function isRangeLimitError(message) {
+  return /(?:block range|range is too wide|query returned more than|too many results|response size|limit exceeded|maximum.*range)/i.test(
+    message,
+  )
+}
+
+async function rawLogs(rpc, fromBlock, toBlock, stats) {
+  for (let attempt = 0; attempt < LOG_MAX_ATTEMPTS; attempt += 1) {
+    assertLogBudget(stats)
+    stats.requests += 1
+    try {
+      const logs = await rpc.request({
+        method: 'eth_getLogs',
+        params: [
+          {
+            address: CONTROLLER,
+            fromBlock: toHex(fromBlock),
+            toBlock: toHex(toBlock),
+            topics: [EVENT_TOPICS],
+          },
+        ],
+      })
+      await sleep(LOG_REQUEST_DELAY_MS)
+      return logs
+    } catch (error) {
+      const message = safeError(error)
+      if (!isRateLimitError(message)) throw error
+      stats.rateLimitRetries += 1
+      if (attempt + 1 >= LOG_MAX_ATTEMPTS) {
+        throw new Error(`log-rate-limit-retries-exhausted:${fromBlock}:${toBlock}:${message}`)
+      }
+      const backoffMs = Math.min(750 * 2 ** attempt + attempt * 137, 12_000)
+      stats.backoffMs += backoffMs
+      await sleep(backoffMs)
+    }
+  }
+  throw new Error(`log-retry-loop-exhausted:${fromBlock}:${toBlock}`)
+}
+
+async function logsAdaptive(rpc, fromBlock, toBlock, stats, depth = 0) {
   try {
-    return await rawLogs(rpc, fromBlock, toBlock)
+    return await rawLogs(rpc, fromBlock, toBlock, stats)
   } catch (error) {
-    if (fromBlock === toBlock) throw new Error(`single-block-log-read-failed:${fromBlock}:${safeError(error)}`)
+    const message = safeError(error)
+    if (!isRangeLimitError(message)) throw error
+    if (fromBlock === toBlock) throw new Error(`single-block-range-limit:${fromBlock}:${message}`)
+    if (depth >= LOG_MAX_SPLIT_DEPTH) throw new Error(`log-split-depth-exhausted:${depth}:${message}`)
+    stats.splits += 1
     const middle = (fromBlock + toBlock) / 2n
-    const left = await logsAdaptive(rpc, fromBlock, middle)
-    const right = await logsAdaptive(rpc, middle + 1n, toBlock)
+    const left = await logsAdaptive(rpc, fromBlock, middle, stats, depth + 1)
+    const right = await logsAdaptive(rpc, middle + 1n, toBlock, stats, depth + 1)
     return [...left, ...right]
   }
 }
@@ -288,10 +335,11 @@ async function scanEvents(label, url, startBlock, endBlock) {
   if (!url) return { label, endpoint: 'omitted', status: 'unavailable', events: [], error: 'provider-not-configured' }
   const rpc = rpcClient(url)
   const raw = []
+  const stats = { startedAt: Date.now(), requests: 0, rateLimitRetries: 0, backoffMs: 0, splits: 0 }
   try {
     for (let from = startBlock; from <= endBlock; from += INITIAL_LOG_RANGE) {
       const to = from + INITIAL_LOG_RANGE - 1n > endBlock ? endBlock : from + INITIAL_LOG_RANGE - 1n
-      raw.push(...(await logsAdaptive(rpc, from, to)))
+      raw.push(...(await logsAdaptive(rpc, from, to, stats)))
     }
     const byKey = new Map()
     for (const log of raw) {
@@ -313,6 +361,7 @@ async function scanEvents(label, url, startBlock, endBlock) {
       rawLogCount: raw.length,
       eventCount: events.length,
       eventDigest: digest(events),
+      requestStats: { ...stats, durationMs: Date.now() - stats.startedAt },
       events,
     }
   } catch (error) {
@@ -322,6 +371,7 @@ async function scanEvents(label, url, startBlock, endBlock) {
       status: 'unavailable',
       startBlock: startBlock.toString(),
       endBlock: endBlock.toString(),
+      requestStats: { ...stats, durationMs: Date.now() - stats.startedAt },
       events: [],
       error: safeError(error),
     }
@@ -600,6 +650,7 @@ const eventAgreement =
   scans.length === 2 &&
   scans.every((scan) => scan.status === 'complete') &&
   scans[0].eventDigest === scans[1].eventDigest &&
+  scans[0].eventDigest === EXPECTED_EVENT_DIGEST &&
   JSON.stringify(scans[0].events) === JSON.stringify(scans[1].events)
 const events = eventAgreement ? scans[0].events : []
 
