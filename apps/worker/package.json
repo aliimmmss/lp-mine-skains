@@ -16,7 +16,8 @@
     "position:history": "node --enable-source-maps dist/position-history.js",
     "monitor:health": "node --enable-source-maps dist/monitor-health.js",
     "monitor:reconcile": "node --enable-source-maps dist/monitor-reconcile.js",
-    "monitor:dashboard": "node --enable-source-maps dist/monitor-dashboard.js"
+    "monitor:dashboard": "node --enable-source-maps dist/monitor-dashboard.js",
+    "monitor:acknowledge": "node --enable-source-maps dist/monitor-acknowledge.js"
   },
   "dependencies": {
     "@lp-mine/core": "*",
