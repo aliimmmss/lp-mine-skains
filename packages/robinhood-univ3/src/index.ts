@@ -54,6 +54,13 @@ export type { IndexedSwap, SwapEventSink, SwapEventSource } from './swap-indexer
 export { SqliteSwapIndexStore } from './swap-store.js'
 export type { SwapTimeQuery, SwapTimeQueryResult, TimestampedIndexedSwap } from './swap-store.js'
 export { SqlitePoolIndexStore } from './sqlite-store.js'
+export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
+export type {
+  WethControlCheck,
+  WethControlCodeEvidence,
+  WethControlObservedState,
+  WethControlVerification,
+} from './weth-control-evidence.js'
 export { ROBINHOOD_WETH_PROXY_EVIDENCE, verifyRobinhoodWethProxyEvidence } from './weth-proxy-evidence.js'
 export type {
   WethProxyCodeEvidence,

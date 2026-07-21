@@ -83,22 +83,24 @@ export const ROBINHOOD_WETH_PROXY_EVIDENCE = Object.freeze({
     address: getAddress('0x2A153c6A1B66DBc930a8d7017230ab0253005C09'),
     byteLength: 2_202,
     bytecodeHash: '0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353' as Hex,
-    controlStatus: 'proxied-owner-unresolved' as const,
+    implementation: getAddress('0x3c3E52bC8C181D06A76e2518bBc655C5BB3Ce7Cd'),
+    controlStatus: 'access-control-role-membership-unresolved' as const,
   }),
   beacon: null,
   tokenMetadata: Object.freeze({ name: 'WETH', symbol: 'WETH', decimals: 18 }),
   executionEligible: false as const,
   executionBlockers: Object.freeze([
-    'The ProxyAdmin owner is itself a contract with transparent-proxy runtime bytecode; its implementation and ultimate control are not yet pinned.',
+    'The ProxyAdmin owner is a verified controller proxy, but its non-enumerable AccessControl role membership is not yet proven.',
     'The exact approve selector and operation-specific ABI allowlist are not yet approved in executable policy.',
     'Allowance-read provider policy, exact-call simulation, confirmation UX, and receipt reconciliation are not implemented.',
-    'Any implementation, admin, owner, or bytecode drift must fail closed and restart review.',
+    'Any implementation, admin, owner, role, or bytecode drift must fail closed and restart review.',
   ]),
   references: Object.freeze([
     'https://docs.robinhood.com/chain/contracts/',
     'https://eips.ethereum.org/EIPS/eip-1967',
     'https://github.com/aliimmmss/lp-mine-skains/issues/62#issuecomment-5032715508',
     'https://github.com/aliimmmss/lp-mine-skains/issues/62#issuecomment-5032763689',
+    'https://github.com/aliimmmss/lp-mine-skains/issues/68#issuecomment-5032901765',
   ]),
 })
 
