@@ -1,0 +1,354 @@
+name: Verify WETH control chain
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: weth-control-chain-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONFIGURED_ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Trace WETH proxy administration to a bounded terminal
+        id: audit
+        shell: bash
+        run: |
+          set -o pipefail
+          node --input-type=module <<'NODE' | tee weth-control-chain-audit.json
+          import { createHash } from 'node:crypto'
+          import { createPublicClient, getAddress, http, keccak256, parseAbi, zeroAddress } from 'viem'
+
+          const CHAIN_ID = 4663
+          const PUBLIC_RPC = 'https://rpc.mainnet.chain.robinhood.com'
+          const START = getAddress('0x2A153c6A1B66DBc930a8d7017230ab0253005C09')
+          const MAX_DEPTH = 6
+          const IMPLEMENTATION_SLOT =
+            '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+          const ADMIN_SLOT =
+            '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+          const BEACON_SLOT =
+            '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50'
+          const OWNER_ABI = parseAbi(['function owner() view returns (address)'])
+          const BASE = 'https://robinhoodchain.blockscout.com/api/v2'
+
+          function rpcClient(url) {
+            return createPublicClient({ transport: http(url, { timeout: 15_000 }) })
+          }
+
+          function slotAddress(value) {
+            if (!value || value === '0x' || /^0x0+$/.test(value)) return null
+            const result = getAddress(`0x${value.slice(-40)}`)
+            return result === zeroAddress ? null : result
+          }
+
+          function codeEvidence(bytecode) {
+            if (!bytecode || bytecode === '0x') {
+              return { hasCode: false, byteLength: 0, bytecodeHash: null }
+            }
+            return {
+              hasCode: true,
+              byteLength: (bytecode.length - 2) / 2,
+              bytecodeHash: keccak256(bytecode),
+            }
+          }
+
+          async function fetchJson(url) {
+            try {
+              const response = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+              if (!response.ok) return { ok: false, value: null, status: response.status }
+              return { ok: true, value: await response.json(), status: response.status }
+            } catch (error) {
+              return {
+                ok: false,
+                value: null,
+                status: null,
+                error: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200),
+              }
+            }
+          }
+
+          function abiArray(value) {
+            if (Array.isArray(value)) return value
+            if (typeof value !== 'string') return []
+            try {
+              const parsed = JSON.parse(value)
+              return Array.isArray(parsed) ? parsed : []
+            } catch {
+              return []
+            }
+          }
+
+          function hasOwnerFunction(value) {
+            return abiArray(value?.abi).some(
+              (entry) =>
+                entry?.type === 'function' &&
+                entry.name === 'owner' &&
+                entry.stateMutability === 'view' &&
+                (entry.inputs?.length ?? 0) === 0 &&
+                JSON.stringify(entry.outputs?.map((output) => output.type)) === JSON.stringify(['address']),
+            )
+          }
+
+          function compactMetadata(value) {
+            if (!value || typeof value !== 'object') return null
+            const source = value.source_code
+            const serializedSource =
+              source === null || source === undefined || source === ''
+                ? null
+                : typeof source === 'string'
+                  ? source
+                  : JSON.stringify(source)
+            const abi = abiArray(value.abi)
+            return {
+              name: value.name ?? null,
+              isVerified: value.is_verified ?? null,
+              isPartiallyVerified: value.is_partially_verified ?? null,
+              compilerVersion: value.compiler_version ?? null,
+              filePath: value.file_path ?? null,
+              proxyType: value.proxy_type ?? null,
+              implementations: value.implementations ?? null,
+              hasOwnerFunction: hasOwnerFunction(value),
+              functionNames: [...new Set(abi.filter((entry) => entry?.type === 'function').map((entry) => entry.name))].sort(),
+              source:
+                serializedSource === null
+                  ? { present: false, length: 0, sha256: null }
+                  : {
+                      present: true,
+                      length: serializedSource.length,
+                      sha256: `0x${createHash('sha256').update(serializedSource).digest('hex')}`,
+                    },
+            }
+          }
+
+          async function explorer(address) {
+            const [addressResponse, contractResponse] = await Promise.all([
+              fetchJson(`${BASE}/addresses/${address}`),
+              fetchJson(`${BASE}/smart-contracts/${address}`),
+            ])
+            return {
+              addressRequestOk: addressResponse.ok,
+              contractRequestOk: contractResponse.ok,
+              addressSummary: addressResponse.value
+                ? {
+                    isContract: addressResponse.value.is_contract ?? null,
+                    isVerified: addressResponse.value.is_verified ?? null,
+                    name: addressResponse.value.name ?? null,
+                    implementationName: addressResponse.value.implementation_name ?? null,
+                  }
+                : null,
+              contract: compactMetadata(contractResponse.value),
+            }
+          }
+
+          async function latest(label, url) {
+            if (!url) return { label, status: 'unavailable', chainId: null, blockNumber: null }
+            try {
+              const rpc = rpcClient(url)
+              const [chainId, blockNumber] = await Promise.all([rpc.getChainId(), rpc.getBlockNumber()])
+              return {
+                label,
+                status: chainId === CHAIN_ID ? 'available' : 'wrong-chain',
+                chainId,
+                blockNumber,
+              }
+            } catch (error) {
+              return {
+                label,
+                status: 'unavailable',
+                chainId: null,
+                blockNumber: null,
+                error: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
+              }
+            }
+          }
+
+          async function readNode(rpc, address, blockNumber, depth, path) {
+            const [bytecode, implementationRaw, adminRaw, beaconRaw, metadata] = await Promise.all([
+              rpc.getBytecode({ address, blockNumber }),
+              rpc.getStorageAt({ address, slot: IMPLEMENTATION_SLOT, blockNumber }),
+              rpc.getStorageAt({ address, slot: ADMIN_SLOT, blockNumber }),
+              rpc.getStorageAt({ address, slot: BEACON_SLOT, blockNumber }),
+              explorer(address),
+            ])
+            const code = codeEvidence(bytecode)
+            const implementation = slotAddress(implementationRaw)
+            const admin = slotAddress(adminRaw)
+            const beacon = slotAddress(beaconRaw)
+            let owner = null
+            let ownerRead = 'not-supported'
+            if (metadata.contract?.hasOwnerFunction === true) {
+              try {
+                owner = getAddress(await rpc.readContract({ address, abi: OWNER_ABI, functionName: 'owner', blockNumber }))
+                ownerRead = 'verified-abi-read'
+              } catch (error) {
+                ownerRead = `unavailable:${error instanceof Error ? error.message.slice(0, 160) : String(error).slice(0, 160)}`
+              }
+            }
+            return {
+              depth,
+              path,
+              address,
+              code,
+              slots: { implementation, admin, beacon },
+              owner,
+              ownerRead,
+              explorer: metadata,
+              classification: !code.hasCode
+                ? 'eoa-or-empty'
+                : implementation !== null || beacon !== null
+                  ? 'proxy'
+                  : 'non-proxy-contract',
+            }
+          }
+
+          async function trace(label, url, blockNumber) {
+            if (!url) return { label, endpoint: 'omitted', status: 'unavailable', nodes: [], terminal: 'provider-unavailable' }
+            const rpc = rpcClient(url)
+            const seen = new Set()
+            const nodes = []
+            const queue = [{ address: START, depth: 0, path: 'proxy-admin-owner' }]
+            let terminal = 'bounded-complete'
+
+            while (queue.length > 0) {
+              const current = queue.shift()
+              const normalized = getAddress(current.address)
+              const key = normalized.toLowerCase()
+              if (seen.has(key)) {
+                terminal = `cycle:${normalized}`
+                continue
+              }
+              if (current.depth > MAX_DEPTH) {
+                terminal = `maximum-depth:${MAX_DEPTH}`
+                continue
+              }
+              seen.add(key)
+              try {
+                const node = await readNode(rpc, normalized, blockNumber, current.depth, current.path)
+                nodes.push(node)
+                const next = [
+                  node.slots.implementation
+                    ? { address: node.slots.implementation, path: `${current.path}.implementation` }
+                    : null,
+                  node.slots.admin ? { address: node.slots.admin, path: `${current.path}.admin` } : null,
+                  node.slots.beacon ? { address: node.slots.beacon, path: `${current.path}.beacon` } : null,
+                  node.owner ? { address: node.owner, path: `${current.path}.owner` } : null,
+                ].filter(Boolean)
+                for (const candidate of next) {
+                  if (!seen.has(candidate.address.toLowerCase())) {
+                    queue.push({ ...candidate, depth: current.depth + 1 })
+                  }
+                }
+              } catch (error) {
+                nodes.push({
+                  depth: current.depth,
+                  path: current.path,
+                  address: normalized,
+                  error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+                })
+                terminal = `unavailable:${normalized}`
+              }
+            }
+
+            return { label, endpoint: 'omitted', status: 'traced', nodes, terminal }
+          }
+
+          function comparable(trace) {
+            return { status: trace.status, nodes: trace.nodes, terminal: trace.terminal }
+          }
+
+          const endpoints = [
+            { label: 'official-public', url: PUBLIC_RPC },
+            { label: 'configured-monitoring', url: process.env.CONFIGURED_ROBINHOOD_RPC_URL },
+          ]
+          const tips = await Promise.all(endpoints.map(({ label, url }) => latest(label, url)))
+          const available = tips.filter((tip) => tip.status === 'available')
+          const sharedBlock = available.reduce(
+            (minimum, tip) => (tip.blockNumber < minimum ? tip.blockNumber : minimum),
+            available[0]?.blockNumber ?? 0n,
+          )
+          const traces =
+            available.length === 2 && sharedBlock > 0n
+              ? await Promise.all(endpoints.map(({ label, url }) => trace(label, url, sharedBlock)))
+              : []
+          const sourceAgreement =
+            traces.length === 2 && JSON.stringify(comparable(traces[0])) === JSON.stringify(comparable(traces[1]))
+          const addresses = [...new Set(traces.flatMap((traceResult) => traceResult.nodes.map((node) => node.address)).filter(Boolean))]
+          const unresolved = traces.some((traceResult) =>
+            traceResult.nodes.some(
+              (node) =>
+                node.error ||
+                (node.classification === 'non-proxy-contract' && node.ownerRead !== 'verified-abi-read') ||
+                node.explorer?.contractRequestOk === false,
+            ),
+          )
+
+          const result = {
+            mode: 'read-only',
+            generatedAt: new Date().toISOString(),
+            startAddress: START,
+            maximumDepth: MAX_DEPTH,
+            sharedBlock: sharedBlock.toString(),
+            tips: tips.map((tip) => ({
+              label: tip.label,
+              status: tip.status,
+              chainId: tip.chainId,
+              blockNumber: tip.blockNumber?.toString() ?? null,
+              error: tip.error ?? null,
+            })),
+            sourceAgreement,
+            discoveredAddressCount: addresses.length,
+            traces,
+            controlStatus: sourceAgreement && !unresolved ? 'bounded-traced' : 'unresolved',
+            executionEligible: false,
+            disclaimer:
+              'This bounded audit reads storage, bytecode, verified metadata, and verified read-only owner() functions only. It does not call upgrade, transferOwnership, approve, encode calldata, connect a wallet, request a signature, submit a transaction, move funds, or recommend capital deployment.',
+          }
+          process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+          NODE
+      - name: Post temporary control-chain marker
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        with:
+          script: |
+            const fs = require('fs')
+            let result = null
+            try {
+              result = JSON.parse(fs.readFileSync('weth-control-chain-audit.json', 'utf8'))
+            } catch {}
+            const body = [
+              '<!-- weth-control-chain-audit -->',
+              `WETH control-chain audit run \`${context.runId}\``,
+              `- event: \`${context.eventName}\``,
+              `- audit step: \`${process.env.AUDIT_OUTCOME || 'unknown'}\``,
+              `- commit: \`${context.sha}\``,
+              '',
+              '```json',
+              JSON.stringify(result, null, 2),
+              '```',
+              '',
+              'Temporary read-only marker; endpoints and credentials are omitted and no state-changing call was performed.',
+            ].join('\n')
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 68,
+              body,
+            })
