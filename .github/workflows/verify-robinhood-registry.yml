@@ -1,0 +1,271 @@
+name: Verify Robinhood registry
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: robinhood-registry-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONFIGURED_ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Audit pinned registry against current RPC state
+        id: audit
+        shell: bash
+        run: |
+          set -o pipefail
+          node --input-type=module <<'NODE' | tee registry-audit.json
+          import { createPublicClient, getAddress, http, keccak256, parseAbi, zeroAddress } from 'viem'
+          import {
+            ROBINHOOD_CHAIN_ID,
+            ROBINHOOD_TOKENS,
+            ROBINHOOD_UNISWAP_V3,
+            ROBINHOOD_WETH_USDG_POOLS,
+          } from './packages/robinhood-univ3/dist/registry.js'
+
+          const factoryAbi = parseAbi([
+            'function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)',
+          ])
+          const erc20Abi = parseAbi([
+            'function symbol() view returns (string)',
+            'function decimals() view returns (uint8)',
+          ])
+
+          const targets = [
+            { name: 'factory', address: ROBINHOOD_UNISWAP_V3.factory },
+            { name: 'positionManager', address: ROBINHOOD_UNISWAP_V3.positionManager },
+            { name: 'wrappedNative', address: ROBINHOOD_TOKENS.wrappedNative },
+            { name: 'usdg', address: ROBINHOOD_TOKENS.usdg },
+            ...ROBINHOOD_WETH_USDG_POOLS.map((pool) => ({
+              name: `pool-${pool.feeTier}`,
+              address: pool.poolAddress,
+            })),
+          ]
+
+          function safeError(error) {
+            return {
+              name: error instanceof Error && error.name ? error.name : 'UnknownError',
+              message: 'RPC operation failed; endpoint and provider details are intentionally omitted.',
+            }
+          }
+
+          async function probeBytecode(client, target) {
+            try {
+              const bytecode = await client.getBytecode({ address: target.address })
+              const hasCode = bytecode !== undefined && bytecode !== '0x'
+              return {
+                name: target.name,
+                address: target.address,
+                hasCode,
+                byteLength: hasCode ? (bytecode.length - 2) / 2 : 0,
+                bytecodeHash: hasCode ? keccak256(bytecode) : null,
+              }
+            } catch (error) {
+              return {
+                name: target.name,
+                address: target.address,
+                hasCode: null,
+                byteLength: null,
+                bytecodeHash: null,
+                error: safeError(error),
+              }
+            }
+          }
+
+          async function probeToken(client, name, address) {
+            const result = { name, address, symbol: null, decimals: null, error: null }
+            try {
+              result.symbol = await client.readContract({ address, abi: erc20Abi, functionName: 'symbol' })
+              result.decimals = Number(
+                await client.readContract({ address, abi: erc20Abi, functionName: 'decimals' }),
+              )
+            } catch (error) {
+              result.error = safeError(error)
+            }
+            return result
+          }
+
+          async function probeSource(label, rpcUrl) {
+            if (!rpcUrl) {
+              return {
+                label,
+                endpoint: 'omitted',
+                status: 'unavailable',
+                error: { name: 'MissingConfiguration', message: 'Configured RPC secret is not set.' },
+              }
+            }
+
+            const client = createPublicClient({ transport: http(rpcUrl, { timeout: 15_000, retryCount: 1 }) })
+            let chainId
+            let blockNumber
+            try {
+              ;[chainId, blockNumber] = await Promise.all([client.getChainId(), client.getBlockNumber()])
+            } catch (error) {
+              return {
+                label,
+                endpoint: 'omitted',
+                status: 'unavailable',
+                error: safeError(error),
+              }
+            }
+
+            const contracts = await Promise.all(targets.map((target) => probeBytecode(client, target)))
+            const factoryProbe = contracts.find((target) => target.name === 'factory')
+            const poolResults = []
+            for (const pinned of ROBINHOOD_WETH_USDG_POOLS) {
+              try {
+                const returned = getAddress(
+                  await client.readContract({
+                    address: ROBINHOOD_UNISWAP_V3.factory,
+                    abi: factoryAbi,
+                    functionName: 'getPool',
+                    args: [ROBINHOOD_TOKENS.wrappedNative, ROBINHOOD_TOKENS.usdg, pinned.feeTier],
+                  }),
+                )
+                const returnedBytecode =
+                  returned === zeroAddress ? undefined : await client.getBytecode({ address: returned })
+                const returnedHasCode =
+                  returned !== zeroAddress && returnedBytecode !== undefined && returnedBytecode !== '0x'
+                poolResults.push({
+                  feeTier: pinned.feeTier,
+                  tickSpacing: pinned.tickSpacing,
+                  pinnedAddress: pinned.poolAddress,
+                  factoryAddress: returned,
+                  matchesPinned: returned === pinned.poolAddress,
+                  returnedHasCode,
+                  returnedBytecodeHash: returnedHasCode ? keccak256(returnedBytecode) : null,
+                })
+              } catch (error) {
+                poolResults.push({
+                  feeTier: pinned.feeTier,
+                  tickSpacing: pinned.tickSpacing,
+                  pinnedAddress: pinned.poolAddress,
+                  factoryAddress: null,
+                  matchesPinned: false,
+                  returnedHasCode: null,
+                  returnedBytecodeHash: null,
+                  error: safeError(error),
+                })
+              }
+            }
+
+            const tokens = await Promise.all([
+              probeToken(client, 'wrappedNative', ROBINHOOD_TOKENS.wrappedNative),
+              probeToken(client, 'usdg', ROBINHOOD_TOKENS.usdg),
+            ])
+            const chainMatches = chainId === ROBINHOOD_CHAIN_ID
+            const missingCode = contracts
+              .filter((target) => target.hasCode !== true)
+              .map((target) => target.name)
+            const poolMismatch = poolResults.some(
+              (pool) => pool.matchesPinned !== true || pool.returnedHasCode !== true,
+            )
+            const tokenFailure = tokens.some((token) => token.error !== null)
+            const status =
+              chainMatches &&
+              factoryProbe?.hasCode === true &&
+              missingCode.length === 0 &&
+              !poolMismatch &&
+              !tokenFailure
+                ? 'verified'
+                : 'mismatch'
+
+            return {
+              label,
+              endpoint: 'omitted',
+              status,
+              chainId,
+              expectedChainId: ROBINHOOD_CHAIN_ID,
+              chainMatches,
+              blockNumber: blockNumber.toString(),
+              contracts,
+              missingOrUnreadableCode: missingCode,
+              tokens,
+              pools: poolResults,
+            }
+          }
+
+          const sources = []
+          sources.push(await probeSource('official-public', ROBINHOOD_UNISWAP_V3.publicRpcUrl))
+          sources.push(await probeSource('configured-monitoring', process.env.CONFIGURED_ROBINHOOD_RPC_URL))
+
+          const comparable = sources.filter((source) => source.status !== 'unavailable')
+          const sourceAgreement =
+            comparable.length === 2 &&
+            JSON.stringify(comparable[0].contracts) === JSON.stringify(comparable[1].contracts) &&
+            JSON.stringify(comparable[0].pools) === JSON.stringify(comparable[1].pools) &&
+            JSON.stringify(comparable[0].tokens) === JSON.stringify(comparable[1].tokens)
+
+          const overallStatus = sources.every((source) => source.status === 'verified')
+            ? 'verified'
+            : sources.some((source) => source.status === 'mismatch')
+              ? 'mismatch'
+              : 'unavailable'
+
+          const report = {
+            mode: 'read-only',
+            generatedAt: new Date().toISOString(),
+            overallStatus,
+            sourceAgreement,
+            pinnedRegistry: {
+              chainId: ROBINHOOD_CHAIN_ID,
+              factory: ROBINHOOD_UNISWAP_V3.factory,
+              positionManager: ROBINHOOD_UNISWAP_V3.positionManager,
+              wrappedNative: ROBINHOOD_TOKENS.wrappedNative,
+              usdg: ROBINHOOD_TOKENS.usdg,
+              pools: ROBINHOOD_WETH_USDG_POOLS,
+            },
+            sources,
+            safetyBoundary:
+              'This audit reads chain state only. It does not connect a wallet, request approvals, sign or submit transactions, move funds, or recommend capital deployment.',
+          }
+          process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+          NODE
+      - name: Post temporary registry verification marker
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        with:
+          script: |
+            const fs = require('fs')
+            let result = null
+            try {
+              result = JSON.parse(fs.readFileSync('registry-audit.json', 'utf8'))
+            } catch {}
+            const body = [
+              '<!-- robinhood-registry-live-audit -->',
+              `Robinhood registry audit run \`${context.runId}\``,
+              `- event: \`${context.eventName}\``,
+              `- audit step: \`${process.env.AUDIT_OUTCOME || 'unknown'}\``,
+              `- commit: \`${context.sha}\``,
+              '',
+              '```json',
+              JSON.stringify(result, null, 2),
+              '```',
+              '',
+              'Temporary read-only marker. RPC endpoints and secret values are intentionally omitted.',
+            ].join('\n')
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 54,
+              body,
+            })
