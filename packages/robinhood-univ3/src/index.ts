@@ -61,6 +61,17 @@ export type {
   WethControlObservedState,
   WethControlVerification,
 } from './weth-control-evidence.js'
+export {
+  ROBINHOOD_WETH_AUTHORITY_EVIDENCE,
+  verifyRobinhoodWethAuthorityEvidence,
+} from './weth-authority-evidence.js'
+export type {
+  AuthorityCodeEvidence,
+  SafeAuthorityObservedState,
+  WethAuthorityCheck,
+  WethAuthorityObservedState,
+  WethAuthorityVerification,
+} from './weth-authority-evidence.js'
 export { ROBINHOOD_WETH_PROXY_EVIDENCE, verifyRobinhoodWethProxyEvidence } from './weth-proxy-evidence.js'
 export type {
   WethProxyCodeEvidence,
