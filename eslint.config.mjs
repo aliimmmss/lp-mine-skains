@@ -31,4 +31,10 @@ export default tseslint.config(
       '@typescript-eslint/require-await': 'off',
     },
   },
+  {
+    files: ['.github/scripts/audit-weth-access-control.mjs'],
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^_events$' }],
+    },
+  },
 )
