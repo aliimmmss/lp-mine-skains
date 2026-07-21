@@ -101,6 +101,8 @@ The worker commands are read-only. They do not sign transactions or require wall
 - Preflight simulation
 - Receipt-based accounting
 
+M4 remains design-only until the [guarded manual execution design gate](docs/M4_GUARDED_EXECUTION_DESIGN.md) is reviewed and its entry conditions are satisfied.
+
 ### M5 — Limited automation
 
 Automation is considered only after a statistically meaningful paper and tiny-live sample. Every strategy must have capital, loss, turnover, asset, and protocol limits.
@@ -123,6 +125,7 @@ docs/
   SECURITY.md
   METRICS.md
   ROBINHOOD_WORKER.md
+  M4_GUARDED_EXECUTION_DESIGN.md
 ```
 
 ## First strategy target
@@ -150,7 +153,7 @@ The project is not successful because it displays a high APR. It is successful w
 
 ## Status
 
-**M0 and the Robinhood portion of M1 are operational. M2 analysis is implemented as a read-only research workflow. No live execution code exists.**
+**M0 and the Robinhood portion of M1 are operational. M2 analysis is implemented as a read-only research workflow. M3 read-only monitoring is nearing completion, and M4 is design-only. No live execution code exists.**
 
 The historical factory deployment/bootstrap block is not yet pinned, so historical scans must use a separately verified start block rather than a guessed value.
 
