@@ -28,12 +28,13 @@ npm run --workspace @lp-mine/worker monitor:reconcile
 This command computes the same health snapshot and writes alert lifecycle rows into the SQLite database identified by `LP_MINE_DATABASE_PATH`. It stores local monitoring metadata only:
 
 - `firstSeenAt`: when the condition was first recorded.
+- `occurrenceStartedAt`: when the current active occurrence began. This changes when a resolved condition reopens.
 - `lastSeenAt`: the newest reconciliation where the condition remained present.
 - `resolvedAt`: when the condition disappeared from the health snapshot.
 - `acknowledgedAt`: when an operator first acknowledged the active condition.
 - `status`: `active` or `resolved`.
 
-Repeated sightings update one row rather than creating duplicates. A resolved condition can reopen under the same `alertKey`; reopening clears the prior acknowledgement so the new occurrence is not silently suppressed.
+Repeated sightings update one row rather than creating duplicates. A resolved condition can reopen under the same `alertKey`; reopening starts a new occurrence and clears the prior acknowledgement so the condition is not silently suppressed.
 
 The command returns all stored lifecycle rows plus active and resolved counts.
 
@@ -90,6 +91,56 @@ Acknowledgement is idempotent and applies only to active alerts. It does not cha
 
 Regenerate the dashboard after acknowledgement to render the updated local lifecycle state.
 
+## Deliver Telegram notifications
+
+The Telegram command reconciles the latest health report, selects active and unacknowledged occurrences that have not already been delivered, sends plain-text alert batches, and records successful delivery locally:
+
+```bash
+export LP_MINE_TELEGRAM_BOT_TOKEN=<bot-token>
+export LP_MINE_TELEGRAM_CHAT_ID=<chat-id>
+npm run --workspace @lp-mine/worker monitor:notify:telegram
+```
+
+An optional forum-topic destination can be configured with:
+
+```bash
+export LP_MINE_TELEGRAM_MESSAGE_THREAD_ID=<positive-integer-topic-id>
+```
+
+The command also accepts `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and `TELEGRAM_MESSAGE_THREAD_ID` as aliases. Its JSON result never includes the bot token or chat ID.
+
+Delivery rules:
+
+- only active, unacknowledged occurrences are eligible
+- each occurrence is delivered once per channel
+- unchanged repeated reconciliations do not send duplicate messages
+- acknowledged conditions are suppressed
+- a resolved condition that later reopens becomes eligible as a new occurrence
+- delivery is recorded only after Telegram confirms that a message was accepted
+- failures do not gain wallet, signer, transaction, or capital-deployment authority
+
+Long alert sets are split into Telegram-safe plain-text batches. Messages do not use Telegram markup, so stored evidence is rendered as text rather than interpreted as formatting.
+
+## GitHub Actions monitor
+
+The `Telegram monitor` workflow can be started manually and is also scheduled hourly at minute 17. Each run:
+
+1. restores the most recent cached SQLite monitoring state
+2. captures current observations for all canonical pools
+3. reconciles health and sends only new Telegram alert occurrences
+4. saves the updated SQLite monitoring and delivery state
+
+The workflow reads:
+
+- `TELEGRAM_BOT_TOKEN` from Actions secrets
+- `TELEGRAM_CHAT_ID` from either Actions secrets or Actions variables
+- optional `TELEGRAM_MESSAGE_THREAD_ID` from either Actions secrets or Actions variables
+- optional `ROBINHOOD_RPC_URL` from Actions secrets; the worker retains its documented public-RPC fallback
+
+The workflow uses an explicit one-hour observation interval and a 90-minute freshness threshold. GitHub schedules can be delayed, so the health report remains evidence-based and will visibly degrade when observations become stale rather than silently treating missing runs as healthy.
+
+The first persisted run can emit insufficient-history alerts because the database has not accumulated enough observations yet. Those alerts are deduplicated after successful delivery and can resolve naturally as evidence accumulates.
+
 ## Thresholds
 
 The health command reuses the pool-history settings:
@@ -128,7 +179,7 @@ Every alert includes an `alertKey`. The key is deterministic for the underlying 
 
 For example, a stale-observation alert keeps the same key as its displayed age increases. A history-risk key includes the exact risk flag, while a source-warning key includes the warning text so distinct source warnings remain distinct.
 
-Alert keys are identities, not evidence that a human has reviewed the condition. Persisted acknowledgements are local operator metadata and do not alter health severity.
+Alert keys are identities, not evidence that a human has reviewed the condition. Persisted acknowledgements and notification delivery records are local operator metadata and do not alter health severity.
 
 ## Alert codes
 
@@ -139,4 +190,4 @@ Alert keys are identities, not evidence that a human has reviewed the condition.
 
 ## Safety boundary
 
-The health snapshot, lifecycle state, local dashboard, and acknowledgement command are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future interactive dashboard must preserve this boundary and must not gain wallet-signing authority.
+The health snapshot, lifecycle state, local dashboard, acknowledgement command, and Telegram delivery command are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery must remain isolated from wallet-signing authority.
