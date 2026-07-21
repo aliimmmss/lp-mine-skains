@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { createHash } from 'node:crypto'
 import {
   createPublicClient,
@@ -592,9 +593,7 @@ const deploymentAgreement =
 
 const scans =
   deploymentAgreement && endBlockAgreement
-    ? await Promise.all(
-        endpoints.map(({ label, url }) => scanEvents(label, url, EXPECTED_DEPLOYMENT_BLOCK, endBlock)),
-      )
+    ? await Promise.all(endpoints.map(({ label, url }) => scanEvents(label, url, EXPECTED_DEPLOYMENT_BLOCK, endBlock)))
     : []
 const eventAgreement =
   scans.length === 2 &&
@@ -606,9 +605,7 @@ const events = eventAgreement ? scans[0].events : []
 const preliminaryRoles = [
   ...new Set(
     events.flatMap((event) =>
-      event.eventName === 'RoleAdminChanged'
-        ? [event.role, event.previousAdminRole, event.newAdminRole]
-        : [event.role],
+      event.eventName === 'RoleAdminChanged' ? [event.role, event.previousAdminRole, event.newAdminRole] : [event.role],
     ),
   ),
 ].sort()
