@@ -177,14 +177,14 @@ describe('Robinhood WETH authority evidence', () => {
         ...expected,
         safes: {
           ...expected.safes,
-          controllerExecutor: { ...safe, modules: [safe.owners[0]] },
+          controllerExecutor: { ...safe, modules: [safe.owners[0]!] },
         },
       },
       {
         ...expected,
         safes: {
           ...expected.safes,
-          controllerExecutor: { ...safe, guard: safe.owners[0] },
+          controllerExecutor: { ...safe, guard: safe.owners[0]! },
         },
       },
       {
