@@ -2,14 +2,11 @@ name: Telegram monitor
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
   schedule:
     - cron: '17 * * * *'
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: telegram-monitor
@@ -50,11 +47,7 @@ jobs:
       - name: Capture current canonical-pool observations
         run: npm run --workspace @lp-mine/worker pools:observe
       - name: Deliver new Telegram alerts
-        id: notify
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run --workspace @lp-mine/worker monitor:notify:telegram | tee telegram-result.json
+        run: npm run --workspace @lp-mine/worker monitor:notify:telegram
       - name: Save monitoring state
         if: always() && hashFiles('data/robinhood-univ3.sqlite') != ''
         uses: actions/cache/save@v4
@@ -64,47 +57,3 @@ jobs:
             data/robinhood-univ3.sqlite-wal
             data/robinhood-univ3.sqlite-shm
           key: ${{ steps.restore-monitor-db.outputs.cache-primary-key }}
-      - name: Post temporary deduplication verification marker
-        if: always()
-        uses: actions/github-script@v7
-        env:
-          NOTIFY_OUTCOME: ${{ steps.notify.outcome }}
-          CACHE_HIT: ${{ steps.restore-monitor-db.outputs.cache-hit }}
-        with:
-          script: |
-            const fs = require('fs')
-            let result = null
-            try {
-              const text = fs.readFileSync('telegram-result.json', 'utf8')
-              const start = text.indexOf('{')
-              if (start >= 0) result = JSON.parse(text.slice(start))
-            } catch {}
-            const safeResult = result === null
-              ? null
-              : {
-                  status: result.status,
-                  healthStatus: result.healthStatus,
-                  candidateAlertCount: result.candidateAlertCount,
-                  deliveredAlertCount: result.deliveredAlertCount,
-                  messageCount: result.messageCount,
-                }
-            const body = [
-              '<!-- telegram-monitor-dedup-verification -->',
-              `Telegram dedup verification run \`${context.runId}\``,
-              `- event: \`${context.eventName}\``,
-              `- notify step: \`${process.env.NOTIFY_OUTCOME || 'unknown'}\``,
-              `- exact cache hit: \`${process.env.CACHE_HIT || 'false'}\``,
-              `- commit: \`${context.sha}\``,
-              '',
-              '```json',
-              JSON.stringify(safeResult, null, 2),
-              '```',
-              '',
-              'Temporary sanitized marker; no Telegram token, chat ID, message contents, wallet data, or signing authority.',
-            ].join('\n')
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: 39,
-              body,
-            })
