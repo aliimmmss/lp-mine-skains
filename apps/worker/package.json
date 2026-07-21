@@ -14,7 +14,8 @@
     "position:fee-share": "node --enable-source-maps dist/position-fee-share.js",
     "position:performance": "node --enable-source-maps dist/position-performance.js",
     "position:history": "node --enable-source-maps dist/position-history.js",
-    "monitor:health": "node --enable-source-maps dist/monitor-health.js"
+    "monitor:health": "node --enable-source-maps dist/monitor-health.js",
+    "monitor:reconcile": "node --enable-source-maps dist/monitor-reconcile.js"
   },
   "dependencies": {
     "@lp-mine/core": "*",
