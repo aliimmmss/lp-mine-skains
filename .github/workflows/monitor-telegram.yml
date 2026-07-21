@@ -1,4 +1,5 @@
 name: Telegram monitor
+# Temporary second-pass trigger; remove after deduplication verification.
 
 on:
   workflow_dispatch:
