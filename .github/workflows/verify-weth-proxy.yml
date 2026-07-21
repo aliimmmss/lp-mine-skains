@@ -1,0 +1,375 @@
+name: Verify WETH proxy evidence
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: weth-proxy-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONFIGURED_ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit proxy, implementation, administration, and ABI
+        id: audit
+        shell: bash
+        run: |
+          set -o pipefail
+          node --input-type=module <<'NODE' | tee weth-proxy-audit.json
+          import {
+            createPublicClient,
+            getAddress,
+            http,
+            keccak256,
+            parseAbi,
+            zeroAddress,
+          } from 'viem'
+
+          const CHAIN_ID = 4663
+          const PUBLIC_RPC = 'https://rpc.mainnet.chain.robinhood.com'
+          const WETH = getAddress('0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73')
+          const POSITION_MANAGER = getAddress('0x73991a25C818Bf1f1128dEAaB1492D45638DE0D3')
+          const IMPLEMENTATION_SLOT =
+            '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+          const ADMIN_SLOT =
+            '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+          const BEACON_SLOT =
+            '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50'
+          const ZERO_OWNER = zeroAddress
+          const TOKEN_ABI = parseAbi([
+            'function name() view returns (string)',
+            'function symbol() view returns (string)',
+            'function decimals() view returns (uint8)',
+            'function totalSupply() view returns (uint256)',
+            'function allowance(address owner,address spender) view returns (uint256)',
+          ])
+
+          function codeEvidence(bytecode) {
+            if (!bytecode || bytecode === '0x') {
+              return { hasCode: false, byteLength: 0, bytecodeHash: null }
+            }
+            return {
+              hasCode: true,
+              byteLength: (bytecode.length - 2) / 2,
+              bytecodeHash: keccak256(bytecode),
+            }
+          }
+
+          function slotAddress(value) {
+            if (!value || value === '0x' || /^0x0+$/.test(value)) return null
+            const candidate = `0x${value.slice(-40)}`
+            if (candidate.toLowerCase() === zeroAddress) return null
+            return getAddress(candidate)
+          }
+
+          async function probe(label, rpcUrl) {
+            if (!rpcUrl) {
+              return { label, endpoint: 'omitted', status: 'unavailable', error: 'provider-not-configured' }
+            }
+            const client = createPublicClient({ transport: http(rpcUrl, { timeout: 15_000 }) })
+            try {
+              const [chainId, blockNumber, proxyCode, implementationRaw, adminRaw, beaconRaw] = await Promise.all([
+                client.getChainId(),
+                client.getBlockNumber(),
+                client.getBytecode({ address: WETH }),
+                client.getStorageAt({ address: WETH, slot: IMPLEMENTATION_SLOT }),
+                client.getStorageAt({ address: WETH, slot: ADMIN_SLOT }),
+                client.getStorageAt({ address: WETH, slot: BEACON_SLOT }),
+              ])
+              const implementation = slotAddress(implementationRaw)
+              const admin = slotAddress(adminRaw)
+              const beacon = slotAddress(beaconRaw)
+              const [implementationCode, adminCode, beaconCode, name, symbol, decimals, totalSupply, allowance] =
+                await Promise.all([
+                  implementation ? client.getBytecode({ address: implementation }) : Promise.resolve(undefined),
+                  admin ? client.getBytecode({ address: admin }) : Promise.resolve(undefined),
+                  beacon ? client.getBytecode({ address: beacon }) : Promise.resolve(undefined),
+                  client.readContract({ address: WETH, abi: TOKEN_ABI, functionName: 'name' }),
+                  client.readContract({ address: WETH, abi: TOKEN_ABI, functionName: 'symbol' }),
+                  client.readContract({ address: WETH, abi: TOKEN_ABI, functionName: 'decimals' }),
+                  client.readContract({ address: WETH, abi: TOKEN_ABI, functionName: 'totalSupply' }),
+                  client.readContract({
+                    address: WETH,
+                    abi: TOKEN_ABI,
+                    functionName: 'allowance',
+                    args: [ZERO_OWNER, POSITION_MANAGER],
+                  }),
+                ])
+              const proxy = codeEvidence(proxyCode)
+              const implementationEvidence = codeEvidence(implementationCode)
+              return {
+                label,
+                endpoint: 'omitted',
+                status:
+                  chainId === CHAIN_ID &&
+                  proxy.hasCode &&
+                  implementation !== null &&
+                  implementationEvidence.hasCode
+                    ? 'verified'
+                    : 'mismatch',
+                chainId,
+                blockNumber: blockNumber.toString(),
+                slots: {
+                  implementation,
+                  admin,
+                  beacon,
+                },
+                proxy,
+                implementation: implementation
+                  ? { address: implementation, ...implementationEvidence }
+                  : null,
+                admin: admin ? { address: admin, ...codeEvidence(adminCode) } : null,
+                beacon: beacon ? { address: beacon, ...codeEvidence(beaconCode) } : null,
+                token: {
+                  name,
+                  symbol,
+                  decimals,
+                  totalSupply: totalSupply.toString(),
+                  zeroOwnerAllowanceForPositionManager: allowance.toString(),
+                },
+              }
+            } catch (error) {
+              return {
+                label,
+                endpoint: 'omitted',
+                status: 'unavailable',
+                error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+              }
+            }
+          }
+
+          async function fetchJson(url) {
+            try {
+              const response = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+              if (!response.ok) return { ok: false, status: response.status, value: null }
+              return { ok: true, status: response.status, value: await response.json() }
+            } catch (error) {
+              return {
+                ok: false,
+                status: null,
+                value: null,
+                error: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200),
+              }
+            }
+          }
+
+          function normalizeAbi(value) {
+            if (Array.isArray(value)) return value
+            if (typeof value === 'string') {
+              try {
+                const parsed = JSON.parse(value)
+                return Array.isArray(parsed) ? parsed : []
+              } catch {
+                return []
+              }
+            }
+            return []
+          }
+
+          function inspectAbi(abi) {
+            const approve = abi.find(
+              (entry) =>
+                entry?.type === 'function' &&
+                entry.name === 'approve' &&
+                entry.stateMutability === 'nonpayable' &&
+                JSON.stringify(entry.inputs?.map((input) => input.type)) === JSON.stringify(['address', 'uint256']),
+            )
+            const allowance = abi.find(
+              (entry) =>
+                entry?.type === 'function' &&
+                entry.name === 'allowance' &&
+                entry.stateMutability === 'view' &&
+                JSON.stringify(entry.inputs?.map((input) => input.type)) === JSON.stringify(['address', 'address']),
+            )
+            const approval = abi.find(
+              (entry) =>
+                entry?.type === 'event' &&
+                entry.name === 'Approval' &&
+                JSON.stringify(entry.inputs?.map((input) => input.type)) ===
+                  JSON.stringify(['address', 'address', 'uint256']),
+            )
+            return {
+              approve: approve
+                ? {
+                    present: true,
+                    outputs: approve.outputs?.map((output) => output.type) ?? [],
+                  }
+                : { present: false, outputs: [] },
+              allowance: allowance
+                ? {
+                    present: true,
+                    outputs: allowance.outputs?.map((output) => output.type) ?? [],
+                  }
+                : { present: false, outputs: [] },
+              approvalEvent: approval
+                ? {
+                    present: true,
+                    indexed: approval.inputs?.map((input) => Boolean(input.indexed)) ?? [],
+                  }
+                : { present: false, indexed: [] },
+            }
+          }
+
+          function contractMetadata(value) {
+            if (!value || typeof value !== 'object') return null
+            const abi = normalizeAbi(value.abi)
+            return {
+              name: value.name ?? null,
+              isVerified: value.is_verified ?? value.isVerified ?? null,
+              isPartiallyVerified: value.is_partially_verified ?? null,
+              isVerifiedViaSourcify: value.is_verified_via_sourcify ?? null,
+              compilerVersion: value.compiler_version ?? null,
+              optimizationEnabled: value.optimization_enabled ?? null,
+              optimizationRuns: value.optimization_runs ?? null,
+              evmVersion: value.evm_version ?? null,
+              licenseType: value.license_type ?? null,
+              verifiedAt: value.verified_at ?? null,
+              filePath: value.file_path ?? null,
+              proxyType: value.proxy_type ?? null,
+              implementations: value.implementations ?? null,
+              abiEntryCount: abi.length,
+              abiSemantics: inspectAbi(abi),
+            }
+          }
+
+          const sources = await Promise.all([
+            probe('official-public', PUBLIC_RPC),
+            probe('configured-monitoring', process.env.CONFIGURED_ROBINHOOD_RPC_URL),
+          ])
+          const verifiedSources = sources.filter((source) => source.status === 'verified')
+          const first = verifiedSources[0]
+          const implementationAddress = first?.slots?.implementation ?? null
+          const comparable = (source) => ({
+            chainId: source.chainId,
+            slots: source.slots,
+            proxy: source.proxy,
+            implementation: source.implementation,
+            admin: source.admin,
+            beacon: source.beacon,
+            token: source.token,
+          })
+          const sourceAgreement =
+            verifiedSources.length === 2 &&
+            JSON.stringify(comparable(verifiedSources[0])) === JSON.stringify(comparable(verifiedSources[1]))
+
+          const blockscoutBase = 'https://robinhoodchain.blockscout.com/api/v2'
+          const [proxyAddressInfo, proxyContractInfo, implementationAddressInfo, implementationContractInfo] =
+            await Promise.all([
+              fetchJson(`${blockscoutBase}/addresses/${WETH}`),
+              fetchJson(`${blockscoutBase}/smart-contracts/${WETH}`),
+              implementationAddress
+                ? fetchJson(`${blockscoutBase}/addresses/${implementationAddress}`)
+                : Promise.resolve({ ok: false, status: null, value: null }),
+              implementationAddress
+                ? fetchJson(`${blockscoutBase}/smart-contracts/${implementationAddress}`)
+                : Promise.resolve({ ok: false, status: null, value: null }),
+            ])
+
+          const proxyMetadata = contractMetadata(proxyContractInfo.value)
+          const implementationMetadata = contractMetadata(implementationContractInfo.value)
+          const explorerImplementation =
+            proxyAddressInfo.value?.implementation_address ??
+            proxyContractInfo.value?.implementations?.[0]?.address_hash ??
+            proxyContractInfo.value?.implementations?.[0]?.address ??
+            null
+          const explorerMatchesStorage =
+            implementationAddress !== null &&
+            explorerImplementation !== null &&
+            getAddress(explorerImplementation) === getAddress(implementationAddress)
+          const abiSemantics = implementationMetadata?.abiSemantics ?? proxyMetadata?.abiSemantics ?? null
+          const requiredAbiPresent =
+            abiSemantics?.approve.present === true &&
+            abiSemantics.approve.outputs.length === 1 &&
+            abiSemantics.approve.outputs[0] === 'bool' &&
+            abiSemantics?.allowance.present === true &&
+            abiSemantics.allowance.outputs.length === 1 &&
+            abiSemantics.allowance.outputs[0] === 'uint256' &&
+            abiSemantics?.approvalEvent.present === true &&
+            JSON.stringify(abiSemantics.approvalEvent.indexed) === JSON.stringify([true, true, false])
+
+          const result = {
+            mode: 'read-only',
+            generatedAt: new Date().toISOString(),
+            overallStatus:
+              sourceAgreement && explorerMatchesStorage && requiredAbiPresent ? 'verified' : 'blocked',
+            sourceAgreement,
+            sources,
+            blockscout: {
+              endpoint: 'official-robinhood-blockscout-v2',
+              proxyAddressRequestOk: proxyAddressInfo.ok,
+              proxyContractRequestOk: proxyContractInfo.ok,
+              implementationAddressRequestOk: implementationAddressInfo.ok,
+              implementationContractRequestOk: implementationContractInfo.ok,
+              explorerImplementation,
+              explorerMatchesStorage,
+              proxyAddressSummary: proxyAddressInfo.value
+                ? {
+                    isContract: proxyAddressInfo.value.is_contract ?? null,
+                    isVerified: proxyAddressInfo.value.is_verified ?? null,
+                    name: proxyAddressInfo.value.name ?? null,
+                    implementationName: proxyAddressInfo.value.implementation_name ?? null,
+                  }
+                : null,
+              implementationAddressSummary: implementationAddressInfo.value
+                ? {
+                    isContract: implementationAddressInfo.value.is_contract ?? null,
+                    isVerified: implementationAddressInfo.value.is_verified ?? null,
+                    name: implementationAddressInfo.value.name ?? null,
+                  }
+                : null,
+              proxyMetadata,
+              implementationMetadata,
+              requiredAbiPresent,
+            },
+            executionEligible: false,
+            disclaimer:
+              'This audit performs read-only RPC and explorer queries. It does not call approve, construct calldata, connect a wallet, request a signature, submit a transaction, move funds, or recommend capital deployment.',
+          }
+          process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+          NODE
+      - name: Post temporary WETH evidence marker
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        with:
+          script: |
+            const fs = require('fs')
+            let result = null
+            try {
+              result = JSON.parse(fs.readFileSync('weth-proxy-audit.json', 'utf8'))
+            } catch {}
+            const body = [
+              '<!-- weth-proxy-live-audit -->',
+              `WETH proxy evidence audit run \`${context.runId}\``,
+              `- event: \`${context.eventName}\``,
+              `- audit step: \`${process.env.AUDIT_OUTCOME || 'unknown'}\``,
+              `- commit: \`${context.sha}\``,
+              '',
+              '```json',
+              JSON.stringify(result, null, 2),
+              '```',
+              '',
+              'Temporary read-only evidence marker; provider endpoints and credentials are omitted, and no transaction-capable operation was performed.',
+            ].join('\n')
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 62,
+              body,
+            })
