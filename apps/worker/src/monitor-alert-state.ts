@@ -121,11 +121,19 @@ export class SqliteMonitorAlertStateStore {
         `
         UPDATE monitor_alert_state
         SET acknowledged_at = ?
-        WHERE alert_key = ? AND status = 'active'
+        WHERE alert_key = ? AND status = 'active' AND acknowledged_at IS NULL
       `,
       )
       .run(acknowledgedAt.toISOString(), alertKey)
     return Number(result.changes) === 1
+  }
+
+  get(alertKey: string): MonitorAlertState | null {
+    if (alertKey.length === 0) throw new RangeError('alertKey must not be empty')
+    const row = this.#database.prepare('SELECT * FROM monitor_alert_state WHERE alert_key = ?').get(alertKey) as
+      | AlertRow
+      | undefined
+    return row === undefined ? null : rowToState(row)
   }
 
   list(status?: MonitorAlertLifecycleStatus): readonly MonitorAlertState[] {
