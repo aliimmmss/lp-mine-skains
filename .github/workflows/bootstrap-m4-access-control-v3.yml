@@ -1,0 +1,222 @@
+name: Bootstrap M4 AccessControl audit v3
+
+on:
+  push:
+    branches:
+      - agent/m4-access-control-history-audit-v3
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m4-access-control-history-audit-v3
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Restore reviewed audit and apply v3 transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout 5aa8d2c9b2318919750df801068d97614c6b9603 -- \
+            .github/scripts/audit-weth-access-control.mjs \
+            .github/workflows/verify-weth-access-control-history-v2.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          script_path = Path('.github/scripts/audit-weth-access-control.mjs')
+          content = script_path.read_text()
+          content = content.replace(
+              "import process from 'node:process'\n",
+              "import process from 'node:process'\nimport { setTimeout as sleep } from 'node:timers/promises'\n",
+          )
+          content = content.replace(
+              "const INITIAL_LOG_RANGE = 500_000n\n",
+              """const INITIAL_LOG_RANGE = 500_000n
+const LOG_REQUEST_DELAY_MS = 350
+const LOG_MAX_ATTEMPTS = 7
+const LOG_MAX_SPLIT_DEPTH = 12
+const LOG_MAX_REQUESTS = 500
+const LOG_MAX_DURATION_MS = 25 * 60 * 1_000
+const EXPECTED_EVENT_DIGEST = '0xd880dde31907ed8351ec66af46cc7f96afffbda565e67501b23f4f4dabdabd06'
+""",
+          )
+
+          old_transport = """async function rawLogs(rpc, fromBlock, toBlock) {
+  return rpc.request({
+    method: 'eth_getLogs',
+    params: [
+      {
+        address: CONTROLLER,
+        fromBlock: toHex(fromBlock),
+        toBlock: toHex(toBlock),
+        topics: [EVENT_TOPICS],
+      },
+    ],
+  })
+}
+
+async function logsAdaptive(rpc, fromBlock, toBlock) {
+  try {
+    return await rawLogs(rpc, fromBlock, toBlock)
+  } catch (error) {
+    if (fromBlock === toBlock) throw new Error(`single-block-log-read-failed:${fromBlock}:${safeError(error)}`)
+    const middle = (fromBlock + toBlock) / 2n
+    const left = await logsAdaptive(rpc, fromBlock, middle)
+    const right = await logsAdaptive(rpc, middle + 1n, toBlock)
+    return [...left, ...right]
+  }
+}
+"""
+          new_transport = """function assertLogBudget(stats) {
+  if (stats.requests >= LOG_MAX_REQUESTS) throw new Error(`log-request-budget-exhausted:${LOG_MAX_REQUESTS}`)
+  if (Date.now() - stats.startedAt > LOG_MAX_DURATION_MS) {
+    throw new Error(`log-duration-budget-exhausted:${LOG_MAX_DURATION_MS}`)
+  }
+}
+
+function isRateLimitError(message) {
+  return /(?:status:\s*429|too many requests|rate.?limit)/i.test(message)
+}
+
+function isRangeLimitError(message) {
+  return /(?:block range|range is too wide|query returned more than|too many results|response size|limit exceeded|maximum.*range)/i.test(
+    message,
+  )
+}
+
+async function rawLogs(rpc, fromBlock, toBlock, stats) {
+  for (let attempt = 0; attempt < LOG_MAX_ATTEMPTS; attempt += 1) {
+    assertLogBudget(stats)
+    stats.requests += 1
+    try {
+      const logs = await rpc.request({
+        method: 'eth_getLogs',
+        params: [
+          {
+            address: CONTROLLER,
+            fromBlock: toHex(fromBlock),
+            toBlock: toHex(toBlock),
+            topics: [EVENT_TOPICS],
+          },
+        ],
+      })
+      await sleep(LOG_REQUEST_DELAY_MS)
+      return logs
+    } catch (error) {
+      const message = safeError(error)
+      if (!isRateLimitError(message)) throw error
+      stats.rateLimitRetries += 1
+      if (attempt + 1 >= LOG_MAX_ATTEMPTS) {
+        throw new Error(`log-rate-limit-retries-exhausted:${fromBlock}:${toBlock}:${message}`)
+      }
+      const backoffMs = Math.min(750 * 2 ** attempt + attempt * 137, 12_000)
+      stats.backoffMs += backoffMs
+      await sleep(backoffMs)
+    }
+  }
+  throw new Error(`log-retry-loop-exhausted:${fromBlock}:${toBlock}`)
+}
+
+async function logsAdaptive(rpc, fromBlock, toBlock, stats, depth = 0) {
+  try {
+    return await rawLogs(rpc, fromBlock, toBlock, stats)
+  } catch (error) {
+    const message = safeError(error)
+    if (!isRangeLimitError(message)) throw error
+    if (fromBlock === toBlock) throw new Error(`single-block-range-limit:${fromBlock}:${message}`)
+    if (depth >= LOG_MAX_SPLIT_DEPTH) throw new Error(`log-split-depth-exhausted:${depth}:${message}`)
+    stats.splits += 1
+    const middle = (fromBlock + toBlock) / 2n
+    const left = await logsAdaptive(rpc, fromBlock, middle, stats, depth + 1)
+    const right = await logsAdaptive(rpc, middle + 1n, toBlock, stats, depth + 1)
+    return [...left, ...right]
+  }
+}
+"""
+          if old_transport not in content:
+              raise SystemExit('reviewed transport block not found')
+          content = content.replace(old_transport, new_transport)
+          content = content.replace(
+              """  const rpc = rpcClient(url)
+  const raw = []
+  try {
+""",
+              """  const rpc = rpcClient(url)
+  const raw = []
+  const stats = { startedAt: Date.now(), requests: 0, rateLimitRetries: 0, backoffMs: 0, splits: 0 }
+  try {
+""",
+              1,
+          )
+          content = content.replace(
+              'raw.push(...(await logsAdaptive(rpc, from, to)))',
+              'raw.push(...(await logsAdaptive(rpc, from, to, stats)))',
+          )
+          content = content.replace(
+              """      eventDigest: digest(events),
+      events,
+""",
+              """      eventDigest: digest(events),
+      requestStats: { ...stats, durationMs: Date.now() - stats.startedAt },
+      events,
+""",
+              1,
+          )
+          content = content.replace(
+              """      events: [],
+      error: safeError(error),
+""",
+              """      requestStats: { ...stats, durationMs: Date.now() - stats.startedAt },
+      events: [],
+      error: safeError(error),
+""",
+              1,
+          )
+          content = content.replace(
+              """  scans[0].eventDigest === scans[1].eventDigest &&
+  JSON.stringify(scans[0].events) === JSON.stringify(scans[1].events)
+""",
+              """  scans[0].eventDigest === scans[1].eventDigest &&
+  scans[0].eventDigest === EXPECTED_EVENT_DIGEST &&
+  JSON.stringify(scans[0].events) === JSON.stringify(scans[1].events)
+""",
+          )
+          content = content.replace(
+              '    scans: scans.map(({ events: _events, ...scan }) => scan),',
+              '    scans,',
+          )
+          script_path.write_text(content)
+
+          old_workflow = Path('.github/workflows/verify-weth-access-control-history-v2.yml')
+          workflow = old_workflow.read_text()
+          replacements = {
+              'Verify WETH AccessControl history v2': 'Verify WETH AccessControl history v3',
+              'weth-access-control-history-v2': 'weth-access-control-history-v3',
+              'access-control-audit-v2.json': 'access-control-audit-v3.json',
+              'weth-access-control-audit-v2-': 'weth-access-control-audit-v3-',
+              'weth-access-control-history-audit-v2': 'weth-access-control-history-audit-v3',
+              'history audit v2 run': 'history audit v3 run',
+          }
+          for old, new in replacements.items():
+              workflow = workflow.replace(old, new)
+          new_workflow = Path('.github/workflows/verify-weth-access-control-history-v3.yml')
+          new_workflow.write_text(workflow)
+          old_workflow.unlink()
+          PY
+          rm .github/workflows/bootstrap-m4-access-control-v3.yml
+          npm run format
+          npm run lint
+          git add --all
+          git commit -m "fix: throttle AccessControl log retrieval"
+          git push origin HEAD:agent/m4-access-control-history-audit-v3
