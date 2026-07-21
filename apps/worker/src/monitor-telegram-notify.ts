@@ -30,10 +30,7 @@ export type TelegramAlertBatch = {
   text: string
 }
 
-export type TelegramSender = (
-  destination: MonitorTelegramDestination,
-  text: string,
-) => Promise<{ messageId: string }>
+export type TelegramSender = (destination: MonitorTelegramDestination, text: string) => Promise<{ messageId: string }>
 
 export function readMonitorTelegramDestination(
   environment: NodeJS.ProcessEnv = process.env,
@@ -46,8 +43,7 @@ export function readMonitorTelegramDestination(
     environment.LP_MINE_TELEGRAM_CHAT_ID ?? environment.TELEGRAM_CHAT_ID,
     'LP_MINE_TELEGRAM_CHAT_ID',
   )
-  const threadValue =
-    environment.LP_MINE_TELEGRAM_MESSAGE_THREAD_ID ?? environment.TELEGRAM_MESSAGE_THREAD_ID
+  const threadValue = environment.LP_MINE_TELEGRAM_MESSAGE_THREAD_ID ?? environment.TELEGRAM_MESSAGE_THREAD_ID
   return {
     botToken,
     chatId,
@@ -76,10 +72,7 @@ export function buildTelegramAlertBatches(
     }
     batches.push({
       alerts: current,
-      text: truncate(
-        formatTelegramAlertMessage(current, healthStatus, generatedAt),
-        TELEGRAM_MESSAGE_LIMIT,
-      ),
+      text: truncate(formatTelegramAlertMessage(current, healthStatus, generatedAt), TELEGRAM_MESSAGE_LIMIT),
     })
     current = [alert]
   }
@@ -87,10 +80,7 @@ export function buildTelegramAlertBatches(
   if (current.length > 0) {
     batches.push({
       alerts: current,
-      text: truncate(
-        formatTelegramAlertMessage(current, healthStatus, generatedAt),
-        TELEGRAM_MESSAGE_LIMIT,
-      ),
+      text: truncate(formatTelegramAlertMessage(current, healthStatus, generatedAt), TELEGRAM_MESSAGE_LIMIT),
     })
   }
   return batches
@@ -151,15 +141,12 @@ export async function sendTelegramMessage(
 
   let response: Response
   try {
-    response = await fetchImplementation(
-      `https://api.telegram.org/bot${destination.botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(15_000),
-      },
-    )
+    response = await fetchImplementation(`https://api.telegram.org/bot${destination.botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(15_000),
+    })
   } catch {
     throw new Error('Telegram sendMessage request failed before receiving a response')
   }
@@ -251,9 +238,7 @@ function truncate(value: string, maximumLength: number): string {
   return `${value.slice(0, Math.max(0, maximumLength - 1))}…`
 }
 
-function isTelegramSuccessPayload(
-  value: unknown,
-): value is { ok: true; result: { message_id: number } } {
+function isTelegramSuccessPayload(value: unknown): value is { ok: true; result: { message_id: number } } {
   if (!isRecord(value) || value.ok !== true || !isRecord(value.result)) return false
   return typeof value.result.message_id === 'number'
 }

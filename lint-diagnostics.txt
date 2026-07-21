@@ -1,0 +1,10 @@
+
+> lp-mine-skains@0.1.0 lint
+> eslint .
+
+
+/home/runner/work/lp-mine-skains/lp-mine-skains/apps/worker/src/monitor-telegram-notify.test.ts
+  164:39  error  'init?.body' may use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+
+✖ 1 problem (1 error, 0 warnings)
+

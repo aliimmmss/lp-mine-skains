@@ -83,20 +83,8 @@ describe('Telegram monitoring notifications', () => {
         return { messageId: '101' }
       })
 
-      const first = await deliverPendingTelegramAlerts(
-        store,
-        destination,
-        'degraded',
-        deliveredAt,
-        sender,
-      )
-      const repeated = await deliverPendingTelegramAlerts(
-        store,
-        destination,
-        'degraded',
-        resolvedAt,
-        sender,
-      )
+      const first = await deliverPendingTelegramAlerts(store, destination, 'degraded', deliveredAt, sender)
+      const repeated = await deliverPendingTelegramAlerts(store, destination, 'degraded', resolvedAt, sender)
 
       expect(first).toMatchObject({
         status: 'sent',
@@ -128,22 +116,10 @@ describe('Telegram monitoring notifications', () => {
         return { messageId: '102' }
       })
 
-      const acknowledged = await deliverPendingTelegramAlerts(
-        store,
-        destination,
-        'degraded',
-        deliveredAt,
-        sender,
-      )
+      const acknowledged = await deliverPendingTelegramAlerts(store, destination, 'degraded', deliveredAt, sender)
       store.reconcile([], resolvedAt)
       store.reconcile([alert], reopenedAt)
-      const reopened = await deliverPendingTelegramAlerts(
-        store,
-        destination,
-        'degraded',
-        reopenedAt,
-        sender,
-      )
+      const reopened = await deliverPendingTelegramAlerts(store, destination, 'degraded', reopenedAt, sender)
 
       expect(acknowledged.status).toBe('no-op')
       expect(reopened.status).toBe('sent')
@@ -204,8 +180,6 @@ describe('Telegram monitoring notifications', () => {
     const failureFetch = vi.fn(async () => {
       throw new Error(`network failure for ${destination.botToken}`)
     }) as unknown as typeof fetch
-    await expect(sendTelegramMessage(destination, 'hello', failureFetch)).rejects.not.toThrow(
-      destination.botToken,
-    )
+    await expect(sendTelegramMessage(destination, 'hello', failureFetch)).rejects.not.toThrow(destination.botToken)
   })
 })
