@@ -1,0 +1,47 @@
+name: Diagnose isolated M4 v3 patch
+
+on:
+  push:
+    branches:
+      - agent/m4-access-control-history-audit-v3b
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m4-access-control-history-audit-v3b
+      - name: Capture bounded patch counts
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          content = Path('.github/scripts/audit-weth-access-control.mjs').read_text()
+          pattern = r"async function rawLogs\(rpc, fromBlock, toBlock\) \{.*?\n\}\n\nasync function logsAdaptive\(rpc, fromBlock, toBlock\) \{.*?\n\}\n\nfunction normalizeLog"
+          checks = {
+              'sleep_import': content.count("import process from 'node:process'\n"),
+              'retry_constants': content.count('const INITIAL_LOG_RANGE = 500_000n\n'),
+              'transport_regex': len(re.findall(pattern, content, flags=re.S)),
+              'scan_stats': content.count('  const rpc = rpcClient(url)\n  const raw = []\n  try {\n'),
+              'scan_call': content.count('raw.push(...(await logsAdaptive(rpc, from, to)))'),
+              'success_stats': content.count('      eventDigest: digest(events),\n      events,\n'),
+              'failure_stats': content.count('      events: [],\n      error: safeError(error),\n'),
+              'known_digest': content.count('  scans[0].eventDigest === scans[1].eventDigest &&\n  JSON.stringify(scans[0].events) === JSON.stringify(scans[1].events)\n'),
+          }
+          Path('.github/scripts/.m4-v3-regex-diagnostic').write_text(
+              '\n'.join(f'{name}={value}' for name, value in checks.items()) + '\n'
+          )
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm .github/workflows/diagnose-m4-v3-regex-patch.yml
+          git add --all
+          git commit -m "chore: capture isolated v3 patch diagnostic"
+          git push origin HEAD:agent/m4-access-control-history-audit-v3b
