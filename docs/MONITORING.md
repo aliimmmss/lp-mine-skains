@@ -30,7 +30,7 @@ This command computes the same health snapshot and writes alert lifecycle rows i
 - `firstSeenAt`: when the condition was first recorded.
 - `lastSeenAt`: the newest reconciliation where the condition remained present.
 - `resolvedAt`: when the condition disappeared from the health snapshot.
-- `acknowledgedAt`: reserved for an operator acknowledgement while the condition is active.
+- `acknowledgedAt`: when an operator first acknowledged the active condition.
 - `status`: `active` or `resolved`.
 
 Repeated sightings update one row rather than creating duplicates. A resolved condition can reopen under the same `alertKey`; reopening clears the prior acknowledgement so the new occurrence is not silently suppressed.
@@ -66,7 +66,29 @@ Open the generated file directly in a browser. It requires no web server, browse
 - source database path, threshold, generation timestamp, and safety disclaimer
 - an escaped JSON snapshot embedded for local inspection
 
-Missing observations render as unavailable rather than as zero. Stale, partial, warning, critical, and resolved conditions remain visibly distinct. The dashboard has no acknowledgement control and does not deliver notifications.
+Missing observations render as unavailable rather than as zero. Stale, partial, warning, critical, and resolved conditions remain visibly distinct. The dashboard does not deliver notifications or write acknowledgements itself.
+
+## Acknowledge an active alert
+
+Copy the exact deterministic `alertKey` from `monitor:reconcile`, the generated dashboard, or another snapshot consumer, then run:
+
+```bash
+npm run --workspace @lp-mine/worker monitor:acknowledge -- \
+  'stale-observation:0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a:500'
+```
+
+Quote the key because source-warning identities can contain spaces or punctuation. The command reads only `LP_MINE_DATABASE_PATH`; unrelated monitoring-threshold settings do not affect it.
+
+The JSON result reports one of four statuses:
+
+- `acknowledged`: the active, previously unacknowledged row received its first acknowledgement timestamp.
+- `already-acknowledged`: the row was already acknowledged; the original timestamp is preserved.
+- `not-active`: the key exists but the condition is resolved.
+- `not-found`: no lifecycle row exists for that key.
+
+Acknowledgement is idempotent and applies only to active alerts. It does not change the alert severity, health status, message, first-seen time, or last-seen time. If an acknowledged condition resolves and later reopens, reconciliation clears the stale acknowledgement and the new occurrence must be acknowledged again.
+
+Regenerate the dashboard after acknowledgement to render the updated local lifecycle state.
 
 ## Thresholds
 
@@ -117,4 +139,4 @@ Alert keys are identities, not evidence that a human has reviewed the condition.
 
 ## Safety boundary
 
-The health snapshot, lifecycle state, and local dashboard are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future acknowledgement interface must preserve this boundary and must not gain wallet-signing authority.
+The health snapshot, lifecycle state, local dashboard, and acknowledgement command are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future interactive dashboard must preserve this boundary and must not gain wallet-signing authority.
