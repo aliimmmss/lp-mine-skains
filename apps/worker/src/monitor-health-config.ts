@@ -1,3 +1,5 @@
+export const DEFAULT_MONITOR_DATABASE_PATH = './data/robinhood-univ3.sqlite'
+
 export type MonitorHealthConfig = {
   databasePath: string
   expectedIntervalSeconds: number
@@ -6,9 +8,14 @@ export type MonitorHealthConfig = {
   maximumObservationAgeSeconds: number
 }
 
+export function readMonitorDatabasePath(environment: NodeJS.ProcessEnv = process.env): string {
+  const configured = environment.LP_MINE_DATABASE_PATH?.trim()
+  return configured && configured.length > 0 ? configured : DEFAULT_MONITOR_DATABASE_PATH
+}
+
 export function readMonitorHealthConfig(environment: NodeJS.ProcessEnv = process.env): MonitorHealthConfig {
   return {
-    databasePath: environment.LP_MINE_DATABASE_PATH ?? './data/robinhood-univ3.sqlite',
+    databasePath: readMonitorDatabasePath(environment),
     expectedIntervalSeconds: parsePositiveInteger(
       environment.LP_MINE_EXPECTED_INTERVAL_SECONDS,
       300,
