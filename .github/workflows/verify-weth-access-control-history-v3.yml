@@ -1,0 +1,115 @@
+name: Verify WETH AccessControl history v3
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: weth-access-control-history-v3
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CONFIGURED_ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Reconstruct role history and current holders
+        id: audit
+        shell: bash
+        run: node .github/scripts/audit-weth-access-control.mjs | tee access-control-audit-v3.json
+      - name: Upload complete normalized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weth-access-control-audit-v3-${{ github.run_id }}
+          path: access-control-audit-v3.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Post compact evidence marker
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        with:
+          script: |
+            const fs = require('fs')
+            let result = null
+            try {
+              result = JSON.parse(fs.readFileSync('access-control-audit-v3.json', 'utf8'))
+            } catch {}
+            const holders = result?.roles?.currentHolders ?? []
+            const evidence = new Map((result?.holderEvidence ?? []).map((holder) => [holder.address, holder]))
+            const holderLines = holders.length
+              ? holders.map((holder) => {
+                  const holderEvidence = evidence.get(holder.account)
+                  return `- ${holder.roleLabel} \`${holder.account}\`: ${holderEvidence?.classification ?? 'unresolved'}`
+                })
+              : ['- none reconstructed']
+            const publicArchive = result?.deploymentBoundary?.archiveEvidence?.find(
+              (entry) => entry.label === 'official-public',
+            )
+            const configuredArchive = result?.deploymentBoundary?.archiveEvidence?.find(
+              (entry) => entry.label === 'configured-monitoring',
+            )
+            const scanLines = (result?.eventHistory?.scans ?? []).map((scan) => {
+              const stats = scan.requestStats ?? {}
+              return `- ${scan.label}: status=\`${scan.status}\`, requests=\`${stats.requests ?? 0}\`, retries=\`${stats.rateLimitRetries ?? 0}\`, splits=\`${stats.splits ?? 0}\`, backoffMs=\`${stats.backoffMs ?? 0}\``
+            })
+            const lines = [
+              '<!-- weth-access-control-history-audit-v3 -->',
+              `WETH AccessControl history audit v3 run \`${context.runId}\``,
+              `- event: \`${context.eventName}\``,
+              `- audit step: \`${process.env.AUDIT_OUTCOME}\``,
+              `- commit: \`${context.sha}\``,
+              `- artifact: \`weth-access-control-audit-v3-${context.runId}\``,
+              '',
+              result
+                ? `- role membership status: \`${result.roleMembershipStatus}\``
+                : '- role membership status: `result-unavailable`',
+              result ? `- control status: \`${result.controlStatus}\`` : '- control status: `unresolved`',
+              result
+                ? `- deployment boundary: block \`${result.deploymentBoundary.expectedBlock}\` (agreement: \`${result.deploymentBoundary.agreement}\`)`
+                : '- deployment boundary: unavailable',
+              result
+                ? `- archive capability: public=\`${publicArchive?.status ?? 'unknown'}\`, configured=\`${configuredArchive?.status ?? 'unknown'}\``
+                : '- archive capability: unavailable',
+              result
+                ? `- confirmed end block: \`${result.endBoundary.blockNumber}\` (agreement: \`${result.endBoundary.agreement}\`)`
+                : '- confirmed end block: unavailable',
+              result
+                ? `- role events: \`${result.eventHistory.eventCount}\`; digest: \`${result.eventHistory.digest}\``
+                : '- role events: unavailable',
+              result
+                ? `- reconstruction anomalies: \`${result.roles.reconstruction.anomalies.length}\`; state mismatches: \`${result.roles.stateMismatches.length}\``
+                : '- reconstruction checks: unavailable',
+              '',
+              'Log retrieval:',
+              ...(scanLines.length ? scanLines : ['- unavailable']),
+              '',
+              'Current holders:',
+              ...holderLines,
+              '',
+              result
+                ? `Authority boundaries: \`${JSON.stringify(result.authorityBoundaries)}\``
+                : 'Authority boundaries: `unresolved`',
+              '',
+              'Execution eligibility remains `false`. Provider endpoints and credentials are omitted; no state-changing call or transaction-capable operation was performed.',
+            ]
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 72,
+              body: lines.join('\n'),
+            })
