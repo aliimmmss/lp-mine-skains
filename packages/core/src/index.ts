@@ -23,6 +23,19 @@ export type SourceStamped<T> = {
 }
 
 export {
+  GUARDED_INTENT_SCHEMA_VERSION,
+  assessGuardedIntentProposal,
+  digestGuardedIntentProposal,
+} from './guarded-intent.js'
+export type {
+  GuardedIntentAssessment,
+  GuardedIntentAssessmentStatus,
+  GuardedIntentCheck,
+  GuardedIntentCheckOutcome,
+  GuardedIntentPolicy,
+  GuardedIntentProposal,
+} from './guarded-intent.js'
+export {
   formatHumanTokenPrice,
   formatLpVsHodlAnalysis,
   formatPositionCostAccounting,
