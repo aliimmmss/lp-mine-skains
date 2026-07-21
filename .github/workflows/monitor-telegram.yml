@@ -1,0 +1,59 @@
+name: Telegram monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-monitor
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LP_MINE_DATABASE_PATH: ./data/robinhood-univ3.sqlite
+      LP_MINE_EXPECTED_INTERVAL_SECONDS: '3600'
+      LP_MINE_MAXIMUM_OBSERVATION_AGE_SECONDS: '5400'
+      ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+      LP_MINE_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      LP_MINE_TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || vars.TELEGRAM_CHAT_ID }}
+      LP_MINE_TELEGRAM_MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID || vars.TELEGRAM_MESSAGE_THREAD_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Restore monitoring state
+        id: restore-monitor-db
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/robinhood-univ3.sqlite
+            data/robinhood-univ3.sqlite-wal
+            data/robinhood-univ3.sqlite-shm
+          key: monitor-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            monitor-db-${{ runner.os }}-
+      - run: mkdir -p data
+      - run: npm run build
+      - name: Capture current canonical-pool observations
+        run: npm run --workspace @lp-mine/worker pools:observe
+      - name: Deliver new Telegram alerts
+        run: npm run --workspace @lp-mine/worker monitor:notify:telegram
+      - name: Save monitoring state
+        if: always() && hashFiles('data/robinhood-univ3.sqlite') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/robinhood-univ3.sqlite
+            data/robinhood-univ3.sqlite-wal
+            data/robinhood-univ3.sqlite-shm
+          key: ${{ steps.restore-monitor-db.outputs.cache-primary-key }}
