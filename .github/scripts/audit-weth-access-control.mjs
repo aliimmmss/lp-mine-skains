@@ -703,7 +703,7 @@ const result = {
     agreement: eventAgreement,
     eventCount: events.length,
     digest: eventAgreement ? digest(events) : null,
-    scans: scans.map(({ events: _events, ...scan }) => scan),
+    scans,
     events,
   },
   roles: {
