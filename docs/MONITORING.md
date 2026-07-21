@@ -35,9 +35,38 @@ This command computes the same health snapshot and writes alert lifecycle rows i
 
 Repeated sightings update one row rather than creating duplicates. A resolved condition can reopen under the same `alertKey`; reopening clears the prior acknowledgement so the new occurrence is not silently suppressed.
 
-The command returns all stored lifecycle rows plus active and resolved counts, making the result directly consumable by a future dashboard.
+The command returns all stored lifecycle rows plus active and resolved counts.
 
 Reconciliation does not deliver Telegram or email notifications. It does not change chain state, position state, or wallet state.
+
+## Generate the local dashboard
+
+Generate a self-contained HTML dashboard from the same health and lifecycle contracts:
+
+```bash
+npm run --workspace @lp-mine/worker monitor:dashboard
+```
+
+The default output is `./data/monitor-dashboard.html`. Set a different destination with:
+
+```bash
+export LP_MINE_DASHBOARD_PATH=./data/operator/monitor.html
+npm run --workspace @lp-mine/worker monitor:dashboard
+```
+
+The command performs one alert reconciliation before rendering, so it updates only the local lifecycle metadata described above. It then writes a static HTML file and prints a compact JSON result containing the resolved dashboard path, health status, and lifecycle counts.
+
+Open the generated file directly in a browser. It requires no web server, browser wallet, external stylesheet, JavaScript package, or network request. The page includes:
+
+- overall health and summary counts
+- all canonical WETH/USDG fee tiers
+- latest observation time and age
+- observation coverage and explicit risk flags
+- active, resolved, acknowledged, and unacknowledged lifecycle state
+- source database path, threshold, generation timestamp, and safety disclaimer
+- an escaped JSON snapshot embedded for local inspection
+
+Missing observations render as unavailable rather than as zero. Stale, partial, warning, critical, and resolved conditions remain visibly distinct. The dashboard has no acknowledgement control and does not deliver notifications.
 
 ## Thresholds
 
@@ -63,7 +92,7 @@ Missing canonical pools, persistent zero liquidity, and insufficient observation
 
 ## Dashboard summary
 
-The report includes a precomputed `summary` object:
+The health report includes a precomputed `summary` object:
 
 - `poolCounts`: total, healthy, degraded, and critical pool counts.
 - `alertCounts`: total alerts, counts by severity, and counts by alert code.
@@ -88,4 +117,4 @@ Alert keys are identities, not evidence that a human has reviewed the condition.
 
 ## Safety boundary
 
-The health snapshot and lifecycle state are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future dashboard UI must preserve this boundary and must not gain wallet-signing authority.
+The health snapshot, lifecycle state, and local dashboard are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future acknowledgement interface must preserve this boundary and must not gain wallet-signing authority.
