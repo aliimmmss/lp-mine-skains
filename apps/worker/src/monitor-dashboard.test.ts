@@ -76,6 +76,7 @@ function fixture(message = 'Latest observation is stale.'): MonitorDashboardSnap
       message,
       status: 'active',
       firstSeenAt: generatedAt,
+      occurrenceStartedAt: generatedAt,
       lastSeenAt: generatedAt,
       resolvedAt: null,
       acknowledgedAt: null,
