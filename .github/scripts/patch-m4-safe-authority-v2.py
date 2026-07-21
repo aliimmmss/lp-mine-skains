@@ -44,7 +44,7 @@ replace_once(
 )
 
 replace_once(
-    """  const implementationAgreement =
+    """const implementationAgreement =
   implementationEvidence.agreement &&
   implementationEvidence.providers.every((provider) => provider.code.hasCode) &&
   implementationMetadata.contract?.name === 'SafeL2'
