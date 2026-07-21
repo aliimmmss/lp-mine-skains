@@ -1,0 +1,60 @@
+name: Fix WETH authority evidence branch
+
+on:
+  push:
+    branches: [agent/m4-weth-authority-evidence]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m4-weth-authority-evidence
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply repository formatting
+        run: |
+          npx prettier --write \
+            docs/ROBINHOOD_WETH_AUTHORITY_EVIDENCE.md \
+            docs/ROBINHOOD_WETH_CONTROL_CHAIN.md \
+            packages/robinhood-univ3/src/index.ts \
+            packages/robinhood-univ3/src/weth-authority-evidence.ts \
+            packages/robinhood-univ3/src/weth-authority-evidence.test.ts \
+            packages/robinhood-univ3/src/weth-control-evidence.ts \
+            packages/robinhood-univ3/src/weth-control-evidence.test.ts
+      - name: Capture typecheck output
+        shell: bash
+        run: npm run typecheck > authority-typecheck.log 2>&1 || true
+      - name: Upload typecheck output
+        uses: actions/upload-artifact@v4
+        with:
+          name: authority-typecheck-${{ github.run_id }}
+          path: authority-typecheck.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Commit formatting
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            docs/ROBINHOOD_WETH_AUTHORITY_EVIDENCE.md \
+            docs/ROBINHOOD_WETH_CONTROL_CHAIN.md \
+            packages/robinhood-univ3/src/index.ts \
+            packages/robinhood-univ3/src/weth-authority-evidence.ts \
+            packages/robinhood-univ3/src/weth-authority-evidence.test.ts \
+            packages/robinhood-univ3/src/weth-control-evidence.ts \
+            packages/robinhood-univ3/src/weth-control-evidence.test.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "style: format WETH authority evidence"
+          git push origin HEAD:agent/m4-weth-authority-evidence
