@@ -13,9 +13,31 @@ export LP_MINE_DATABASE_PATH=./data/robinhood-univ3.sqlite
 npm run --workspace @lp-mine/worker monitor:health
 ```
 
-The command reads the canonical WETH/USDG pool histories and writes JSON to standard output.
+The command reads the canonical WETH/USDG pool histories and writes JSON to standard output. It does not modify the database.
 
 Consumers should treat each command result as an immutable snapshot and reconcile alerts by `alertKey` rather than by message text.
+
+## Persist alert lifecycle state
+
+Run reconciliation after producing fresh observations:
+
+```bash
+npm run --workspace @lp-mine/worker monitor:reconcile
+```
+
+This command computes the same health snapshot and writes alert lifecycle rows into the SQLite database identified by `LP_MINE_DATABASE_PATH`. It stores local monitoring metadata only:
+
+- `firstSeenAt`: when the condition was first recorded.
+- `lastSeenAt`: the newest reconciliation where the condition remained present.
+- `resolvedAt`: when the condition disappeared from the health snapshot.
+- `acknowledgedAt`: reserved for an operator acknowledgement while the condition is active.
+- `status`: `active` or `resolved`.
+
+Repeated sightings update one row rather than creating duplicates. A resolved condition can reopen under the same `alertKey`; reopening clears the prior acknowledgement so the new occurrence is not silently suppressed.
+
+The command returns all stored lifecycle rows plus active and resolved counts, making the result directly consumable by a future dashboard.
+
+Reconciliation does not deliver Telegram or email notifications. It does not change chain state, position state, or wallet state.
 
 ## Thresholds
 
@@ -55,7 +77,7 @@ Every alert includes an `alertKey`. The key is deterministic for the underlying 
 
 For example, a stale-observation alert keeps the same key as its displayed age increases. A history-risk key includes the exact risk flag, while a source-warning key includes the warning text so distinct source warnings remain distinct.
 
-Alert keys are identifiers, not acknowledgements. This slice does not persist alert state, silence alerts, or deliver Telegram or email notifications.
+Alert keys are identities, not evidence that a human has reviewed the condition. Persisted acknowledgements are local operator metadata and do not alter health severity.
 
 ## Alert codes
 
@@ -66,4 +88,4 @@ Alert keys are identifiers, not acknowledgements. This slice does not persist al
 
 ## Safety boundary
 
-The health snapshot is descriptive monitoring output. It does not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future dashboard UI must preserve this boundary and must not gain wallet-signing authority.
+The health snapshot and lifecycle state are descriptive monitoring outputs. They do not infer fees, APR, expected return, execution quality, or whether a position should be opened, changed, or closed. Notification delivery and any future dashboard UI must preserve this boundary and must not gain wallet-signing authority.
