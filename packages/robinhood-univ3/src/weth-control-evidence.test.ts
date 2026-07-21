@@ -35,9 +35,7 @@ describe('Robinhood WETH upgrade-control evidence', () => {
     expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.status).toBe('read-only-verified-role-membership-unresolved')
     expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.sourceAgreement).toBe(true)
     expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.controllerImplementation.accessControl.enumerable).toBe(false)
-    expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.controlStatus).toBe(
-      'access-control-role-membership-unresolved',
-    )
+    expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.controlStatus).toBe('access-control-role-membership-unresolved')
     expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.executionEligible).toBe(false)
     expect(ROBINHOOD_WETH_CONTROL_EVIDENCE.executionBlockers.length).toBeGreaterThan(0)
   })
