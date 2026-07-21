@@ -1,0 +1,51 @@
+name: Restore M4 AccessControl audit baseline
+
+on:
+  push:
+    branches:
+      - agent/m4-access-control-history-audit-v3b
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m4-access-control-history-audit-v3b
+          fetch-depth: 0
+      - name: Restore reviewed audit files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout 5aa8d2c9b2318919750df801068d97614c6b9603 -- \
+            .github/scripts/audit-weth-access-control.mjs \
+            .github/workflows/verify-weth-access-control-history-v2.yml
+          mv .github/workflows/verify-weth-access-control-history-v2.yml \
+            .github/workflows/verify-weth-access-control-history-v3.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/verify-weth-access-control-history-v3.yml')
+          content = path.read_text()
+          replacements = {
+              'Verify WETH AccessControl history v2': 'Verify WETH AccessControl history v3',
+              'weth-access-control-history-v2': 'weth-access-control-history-v3',
+              'access-control-audit-v2.json': 'access-control-audit-v3.json',
+              'weth-access-control-audit-v2-': 'weth-access-control-audit-v3-',
+              'weth-access-control-history-audit-v2': 'weth-access-control-history-audit-v3',
+              'history audit v2 run': 'history audit v3 run',
+          }
+          for old, new in replacements.items():
+              content = content.replace(old, new)
+          path.write_text(content)
+          PY
+          rm .github/workflows/restore-m4-access-control-v3.yml
+          git add --all
+          git commit -m "chore: restore reviewed AccessControl audit baseline"
+          git push origin HEAD:agent/m4-access-control-history-audit-v3b
