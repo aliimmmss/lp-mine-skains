@@ -1,0 +1,49 @@
+name: Apply M4 AccessControl audit v2 lossless scans
+
+on:
+  push:
+    branches:
+      - agent/m4-access-control-history-audit-v2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/m4-access-control-history-audit-v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Preserve complete provider scans without destructuring
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/scripts/audit-weth-access-control.mjs')
+          lines = path.read_text().splitlines()
+          needle = 'scans: scans.map(({ events: _events, ...scan }) => scan),'
+          matches = [index for index, line in enumerate(lines) if needle in line]
+          if len(matches) != 1:
+              raise SystemExit(f'expected one scan projection, found {len(matches)}')
+          index = matches[0]
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines[index] = f'{indent}scans,'
+          path.write_text('\n'.join(lines) + '\n')
+          PY
+      - run: npm run format
+      - name: Commit lossless scan output
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/scripts/audit-weth-access-control.mjs
+          git commit -m "fix: retain complete AccessControl provider scans"
+          git push origin HEAD:agent/m4-access-control-history-audit-v2
