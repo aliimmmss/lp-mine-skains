@@ -26,6 +26,19 @@ export {
 } from './pool-integrity.js'
 export type { CanonicalPool } from './pool-integrity.js'
 export {
+  ROBINHOOD_REGISTRY_EVIDENCE,
+  assertVerifiedRobinhoodRegistryBytecode,
+  registryEvidenceForAddress,
+  verifyBytecodeEvidence,
+  verifyRobinhoodRegistryBytecode,
+} from './registry-evidence.js'
+export type {
+  RegistryBytecodeVerification,
+  RegistryBytecodeVerificationStatus,
+  RobinhoodRegistryBytecodeEvidence,
+  RobinhoodRegistryRole,
+} from './registry-evidence.js'
+export {
   ROBINHOOD_CHAIN_ID,
   ROBINHOOD_TOKENS,
   ROBINHOOD_UNISWAP_V3,
