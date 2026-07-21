@@ -73,6 +73,26 @@ export type {
   WethAllowanceReadEvidence,
   WethAllowanceRegistryPaperEvidence,
 } from './weth-allowance-paper.js'
+export {
+  WETH_ALLOWANCE_SIMULATION_MAX_AGE_SECONDS,
+  WETH_ALLOWANCE_SIMULATION_MAX_CALL_DEPTH,
+  WETH_ALLOWANCE_SIMULATION_POLICY_VERSION,
+  defaultWethAllowanceSimulationIdentityEvidence,
+  validateWethAllowanceSimulationEvidencePolicy,
+} from './weth-allowance-simulation-policy.js'
+export type {
+  WethAllowanceSimulationBalanceDelta,
+  WethAllowanceSimulationCall,
+  WethAllowanceSimulationCallType,
+  WethAllowanceSimulationIdentityEvidence,
+  WethAllowanceSimulationLog,
+  WethAllowanceSimulationPaperReference,
+  WethAllowanceSimulationPolicyCheck,
+  WethAllowanceSimulationPolicyInput,
+  WethAllowanceSimulationPolicyResult,
+  WethAllowanceSimulationProviderEvidence,
+  WethAllowanceSimulationStateDiff,
+} from './weth-allowance-simulation-policy.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
