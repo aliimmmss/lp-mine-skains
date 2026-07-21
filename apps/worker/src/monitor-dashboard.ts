@@ -23,10 +23,7 @@ export function readMonitorDashboardOutputPath(environment: NodeJS.ProcessEnv = 
   return configured && configured.length > 0 ? configured : './data/monitor-dashboard.html'
 }
 
-export function buildMonitorDashboardSnapshot(
-  config: MonitorHealthConfig,
-  now = new Date(),
-): MonitorDashboardSnapshot {
+export function buildMonitorDashboardSnapshot(config: MonitorHealthConfig, now = new Date()): MonitorDashboardSnapshot {
   const health = buildMonitorHealthReport(config, now)
   const store = new SqliteMonitorAlertStateStore(config.databasePath)
   try {
@@ -217,8 +214,10 @@ function renderPoolRow(pool: MonitorPoolHealth): string {
 }
 
 function renderAlertRow(alert: MonitorAlertState): string {
-  const acknowledged = alert.acknowledgedAt === null ? 'Unacknowledged' : `Acknowledged ${formatDate(alert.acknowledgedAt)}`
-  const finalTimestamp = alert.resolvedAt === null ? formatDate(alert.lastSeenAt) : `Resolved ${formatDate(alert.resolvedAt)}`
+  const acknowledged =
+    alert.acknowledgedAt === null ? 'Unacknowledged' : `Acknowledged ${formatDate(alert.acknowledgedAt)}`
+  const finalTimestamp =
+    alert.resolvedAt === null ? formatDate(alert.lastSeenAt) : `Resolved ${formatDate(alert.resolvedAt)}`
   return `<tr>
     <td><span class="badge ${alert.status}">${escapeHtml(alert.status)}</span><br><span class="muted">${escapeHtml(acknowledged)}</span></td>
     <td><span class="badge ${alert.severity}">${escapeHtml(alert.severity)}</span></td>
