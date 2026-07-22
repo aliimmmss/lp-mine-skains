@@ -106,6 +106,18 @@ export type {
   WethAllowanceSimulationProviderEvidence,
   WethAllowanceSimulationStateDiff,
 } from './weth-allowance-simulation-policy.js'
+export {
+  WETH_ALLOWANCE_SIMULATION_REVIEW_REPORT_VERSION,
+  createWethAllowanceSimulationReviewReport,
+  renderWethAllowanceSimulationReviewText,
+} from './weth-allowance-simulation-review-report.js'
+export type {
+  WethAllowanceSimulationReviewCall,
+  WethAllowanceSimulationReviewEvent,
+  WethAllowanceSimulationReviewEvidence,
+  WethAllowanceSimulationReviewReport,
+  WethAllowanceSimulationReviewReportCheck,
+} from './weth-allowance-simulation-review-report.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
