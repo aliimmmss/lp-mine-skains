@@ -5,32 +5,29 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnostics:
+  format-source:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Format ingestion source for artifact
-        run: npx prettier --write packages/robinhood-univ3/src/weth-allowance-simulation-ingestion.ts
-      - name: Capture command output
+      - run: npx prettier --write packages/robinhood-univ3/src/weth-allowance-simulation-ingestion.ts
+      - name: Commit formatted source
         shell: bash
         run: |
-          mkdir -p diagnostics/formatted
-          cp packages/robinhood-univ3/src/weth-allowance-simulation-ingestion.ts diagnostics/formatted/
-          npm run format:check > diagnostics/format.log 2>&1 || true
-          npm run lint > diagnostics/lint.log 2>&1 || true
-          npm run typecheck > diagnostics/typecheck.log 2>&1 || true
-          npm test > diagnostics/test.log 2>&1 || true
-          npm run build > diagnostics/build.log 2>&1 || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: m4-ingestion-diagnostics
-          path: diagnostics
-          if-no-files-found: error
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add packages/robinhood-univ3/src/weth-allowance-simulation-ingestion.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Format offline simulation ingestion"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
