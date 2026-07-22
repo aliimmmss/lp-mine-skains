@@ -1,0 +1,30 @@
+name: M4 Review Report Diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture lint and test output
+        shell: bash
+        run: |
+          mkdir -p diagnostics
+          npm run lint > diagnostics/lint.log 2>&1 || true
+          npm test > diagnostics/test.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m4-review-report-diagnostics
+          path: diagnostics
+          if-no-files-found: error
