@@ -74,6 +74,19 @@ export type {
   WethAllowanceRegistryPaperEvidence,
 } from './weth-allowance-paper.js'
 export {
+  WETH_ALLOWANCE_SIMULATION_FIXTURE_VERSION,
+  WETH_ALLOWANCE_SIMULATION_SOURCE_FORMAT,
+  ingestWethAllowanceSimulationFixture,
+} from './weth-allowance-simulation-ingestion.js'
+export type {
+  WethAllowanceSimulationIngestionCheck,
+  WethAllowanceSimulationIngestionResult,
+  WethAllowanceSimulationOfflineBalanceDelta,
+  WethAllowanceSimulationOfflineCall,
+  WethAllowanceSimulationOfflineFixture,
+  WethAllowanceSimulationOfflineLog,
+} from './weth-allowance-simulation-ingestion.js'
+export {
   WETH_ALLOWANCE_SIMULATION_MAX_AGE_SECONDS,
   WETH_ALLOWANCE_SIMULATION_MAX_CALL_DEPTH,
   WETH_ALLOWANCE_SIMULATION_POLICY_VERSION,
