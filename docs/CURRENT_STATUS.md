@@ -20,6 +20,7 @@ This document records the current reviewed project boundary after completion of 
 - offline-only sanitized simulation-evidence ingestion, deterministic normalization, and fail-closed policy review
 - deterministic offline operator-review reports with policy-integrity replay, safe evidence summaries, and immutable report digests
 - offline review-record lifecycle evaluation with exact report/current-state validation and stable fail-closed invalidation reasons
+- immutable offline typed WETH allowance-revocation review intents with deterministic IDs, full build-commit binding, exact evidence references, and fixed 300-second expiry
 
 ## Explicitly not implemented or authorized
 
@@ -33,4 +34,4 @@ This document records the current reviewed project boundary after completion of 
 - live or tiny-live execution
 - automated capital deployment
 
-Every later M4 capability requires a separately reviewed issue and pull request. All current policy, ingestion, review-report, lifecycle, and evidence outputs remain implementation-unauthorized, simulation-unauthorized, and execution-ineligible.
+Every later M4 capability requires a separately reviewed issue and pull request. All current policy, ingestion, review-report, lifecycle, typed-intent, and evidence outputs remain transaction-build-unauthorized, implementation-unauthorized, simulation-unauthorized, signing-ineligible, and execution-ineligible.
