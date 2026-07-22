@@ -187,7 +187,7 @@ export function ingestWethAllowanceSimulationFixture(
 
   if (checks.every((check) => check.status === 'pass')) {
     try {
-      normalizedInput = parseFixture(root)
+      normalizedInput = parseFixture(root as Record<string, unknown>)
       checks.push(ingestionCheck('fixture-schema', true, 'Fixture schema is valid.', 'Fixture schema is invalid.'))
       policyResult = validateWethAllowanceSimulationEvidencePolicy(normalizedInput, reviewedAt)
       checks.push(
@@ -211,7 +211,8 @@ export function ingestWethAllowanceSimulationFixture(
   }
 
   const failed = checks.filter((check) => check.status === 'fail')
-  const status = failed.length === 0 && policyResult?.status === 'policy-conformant' ? ('normalized' as const) : ('blocked' as const)
+  const status =
+    failed.length === 0 && policyResult?.status === 'policy-conformant' ? ('normalized' as const) : ('blocked' as const)
   const reasons =
     status === 'normalized'
       ? [
