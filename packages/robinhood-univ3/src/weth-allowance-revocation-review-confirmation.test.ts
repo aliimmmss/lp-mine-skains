@@ -158,10 +158,7 @@ describe('offline WETH allowance-revocation deliberate confirmation', () => {
       ['confirmation-native-value', { ...base, nativeValue: '1' }],
       ['acknowledges-allowance-revocation', { ...base, acknowledgesAllowanceRevocation: false }],
       ['acknowledges-no-token-transfer', { ...base, acknowledgesNoTokenTransfer: false }],
-      [
-        'acknowledges-no-authority',
-        { ...base, acknowledgesNoTransactionSigningExecutionAuthority: false },
-      ],
+      ['acknowledges-no-authority', { ...base, acknowledgesNoTransactionSigningExecutionAuthority: false }],
     ]
 
     for (const [reasonCode, confirmation] of cases) {
@@ -228,10 +225,7 @@ describe('offline WETH allowance-revocation deliberate confirmation', () => {
   it('rejects extra secret, wallet, and transaction fields without preserving them', () => {
     const secret = 'super-secret-wallet-key'
     const candidates: readonly [unknown, unknown][] = [
-      [
-        { ...validIntentResult(), wallet: { signature: secret } },
-        validConfirmation(),
-      ],
+      [{ ...validIntentResult(), wallet: { signature: secret } }, validConfirmation()],
       [
         validIntentResult(),
         {

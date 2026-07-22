@@ -269,9 +269,7 @@ export function createWethAllowanceRevocationReviewConfirmation(
     ),
     confirmationCheck(
       'confirmation-after-intent-assessment',
-      confirmedAt !== null &&
-        intentResult !== null &&
-        confirmedAt.getTime() >= intentResult.assessedAt.getTime(),
+      confirmedAt !== null && intentResult !== null && confirmedAt.getTime() >= intentResult.assessedAt.getTime(),
       'Confirmation occurs at or after typed-intent assessment.',
       'Confirmation precedes typed-intent assessment or timestamps are unavailable.',
     ),
@@ -323,8 +321,7 @@ export function createWethAllowanceRevocationReviewConfirmation(
     normalizedConfirmation = { ...body, confirmationId }
   }
 
-  const status =
-    normalizedConfirmation === null ? ('blocked' as const) : ('confirmed-for-offline-review' as const)
+  const status = normalizedConfirmation === null ? ('blocked' as const) : ('confirmed-for-offline-review' as const)
   const reasonCodes = checks.filter((check) => check.status === 'fail').map((check) => check.code)
   const reasons =
     status === 'confirmed-for-offline-review'
@@ -420,8 +417,7 @@ function parseIntent(value: unknown): WethAllowanceRevocationReviewIntent | null
   if (
     generatedAt === null ||
     expiresAt === null ||
-    expiresAt.getTime() - generatedAt.getTime() !==
-      WETH_ALLOWANCE_REVOCATION_REVIEW_INTENT_LIFETIME_SECONDS * 1_000 ||
+    expiresAt.getTime() - generatedAt.getTime() !== WETH_ALLOWANCE_REVOCATION_REVIEW_INTENT_LIFETIME_SECONDS * 1_000 ||
     typeof value.buildCommit !== 'string' ||
     !/^[0-9a-f]{40}$/.test(value.buildCommit) ||
     owner === null ||
@@ -537,8 +533,7 @@ function parseConfirmation(value: unknown): ParsedConfirmation | null {
     confirmedAt,
     acknowledgesAllowanceRevocation: value.acknowledgesAllowanceRevocation,
     acknowledgesNoTokenTransfer: value.acknowledgesNoTokenTransfer,
-    acknowledgesNoTransactionSigningExecutionAuthority:
-      value.acknowledgesNoTransactionSigningExecutionAuthority,
+    acknowledgesNoTransactionSigningExecutionAuthority: value.acknowledgesNoTransactionSigningExecutionAuthority,
   }
 }
 
