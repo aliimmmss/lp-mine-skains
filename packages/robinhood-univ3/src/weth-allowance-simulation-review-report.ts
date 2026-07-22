@@ -334,7 +334,11 @@ function buildReviewEvidence(input: WethAllowanceSimulationPolicyInput): WethAll
   if (input.containsRawTransactionMaterial) {
     throw new TypeError('Normalized evidence indicates raw transaction material.')
   }
-  if (input.providers.sharedBlock === null || input.providers.blockHash === null || input.providers.observedAt === null) {
+  if (
+    input.providers.sharedBlock === null ||
+    input.providers.blockHash === null ||
+    input.providers.observedAt === null
+  ) {
     throw new TypeError('Provider block binding or observation timestamp is missing.')
   }
   if (input.calls.length !== 2) throw new TypeError('Normalized call tree must contain exactly two calls.')
