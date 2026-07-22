@@ -41,6 +41,7 @@ The repository now includes a read-only Robinhood Chain data, analysis, monitori
 - Offline-only sanitized simulation-evidence ingestion with strict schema checks, deterministic normalization, and fail-closed policy review
 - Deterministic offline operator-review reports with policy-integrity replay, safe evidence summaries, and immutable report digests
 - Offline review-record lifecycle evaluation with fail-closed invalidation on identity, block, allowance, registry, authority, provider, freshness, or incident-state drift
+- Immutable offline typed review intents with deterministic IDs, exact evidence binding, full build-commit references, and fixed 300-second expiry
 
 Start with the [Robinhood worker runbook](docs/ROBINHOOD_WORKER.md) for setup, commands, environment variables, evidence rules, report statuses, and current limitations.
 
@@ -108,7 +109,7 @@ The worker commands are read-only. They do not sign transactions or require wall
 - Preflight simulation
 - Receipt-based accounting
 
-The [guarded manual execution design gate](docs/M4_GUARDED_EXECUTION_DESIGN.md), authority evidence, paper-mode evaluator, inert simulation-evidence policy, offline sanitized evidence ingestion, deterministic operator-review reporting, and offline review-record invalidation lifecycle are complete. M4 remains execution-disabled: no wallet connection, calldata generation, provider network simulation call, signature request, transaction submission, or receipt reconciliation is authorized or implemented. Each later capability requires a separately reviewed issue and pull request.
+The [guarded manual execution design gate](docs/M4_GUARDED_EXECUTION_DESIGN.md), authority evidence, paper-mode evaluator, inert simulation-evidence policy, offline sanitized evidence ingestion, deterministic operator-review reporting, offline review-record invalidation lifecycle, and immutable typed review-intent boundary are complete. M4 remains execution-disabled: no wallet connection, calldata generation, provider network simulation call, signature request, transaction submission, or receipt reconciliation is authorized or implemented. Each later capability requires a separately reviewed issue and pull request.
 
 ### M5 — Limited automation
 
@@ -163,7 +164,7 @@ The project is not successful because it displays a high APR. It is successful w
 
 See [Current project status](docs/CURRENT_STATUS.md) for the explicit implemented and non-authorized capability boundary.
 
-**M0, the Robinhood portion of M1, M2 analysis, and M3 read-only monitoring are operational. M4 readiness, authority evidence, paper mode, simulation-policy design, offline sanitized evidence ingestion, operator-review reporting, and review-record invalidation are complete, but all execution capabilities remain disabled. No live execution code exists.**
+**M0, the Robinhood portion of M1, M2 analysis, and M3 read-only monitoring are operational. M4 readiness, authority evidence, paper mode, simulation-policy design, offline sanitized evidence ingestion, operator-review reporting, review-record invalidation, and immutable typed review intents are complete, but all execution capabilities remain disabled. No live execution code exists.**
 
 The historical factory deployment/bootstrap block is not yet pinned, so historical scans must use a separately verified start block rather than a guessed value.
 
