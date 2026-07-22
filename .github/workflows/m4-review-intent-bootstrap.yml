@@ -1,0 +1,42 @@
+name: M4 Review Intent Bootstrap
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Format and validate typed review intent
+        shell: bash
+        run: |
+          npx prettier --write \
+            packages/robinhood-univ3/src/index.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-review-intent.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-review-intent.test.ts
+          npm run lint
+          npm run typecheck
+          npm test
+      - name: Commit formatted source
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add packages/robinhood-univ3/src/index.ts packages/robinhood-univ3/src/weth-allowance-revocation-review-intent.ts packages/robinhood-univ3/src/weth-allowance-revocation-review-intent.test.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Format offline typed review intent"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
