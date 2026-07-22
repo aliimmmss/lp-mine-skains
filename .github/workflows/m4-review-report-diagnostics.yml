@@ -5,26 +5,106 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnostics:
+  apply-fixes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Capture lint and test output
+      - name: Apply exact reviewed check-code allowlists
         shell: bash
         run: |
-          mkdir -p diagnostics
-          npm run lint > diagnostics/lint.log 2>&1 || true
-          npm test > diagnostics/test.log 2>&1 || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: m4-review-report-diagnostics
-          path: diagnostics
-          if-no-files-found: error
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('packages/robinhood-univ3/src/weth-allowance-simulation-review-report.ts')
+          text = path.read_text()
+          text = text.replace(
+              "const ZERO_DIGEST = `0x${'00'.repeat(32)}` as Hex",
+              "const ZERO_DIGEST = `0x${'00'.repeat(32)}`",
+          )
+          anchor = "const ZERO_DIGEST = `0x${'00'.repeat(32)}`\n"
+          allowlists = """
+
+          const REVIEWED_INGESTION_CHECK_CODES = new Set([
+            'fixture-object',
+            'fixture-version',
+            'source-format',
+            'raw-material-absent',
+            'fixture-schema',
+            'policy-conformance',
+          ])
+
+          const REVIEWED_POLICY_CHECK_CODES = new Set([
+            'policy-version',
+            'paper-operation',
+            'paper-decision',
+            'paper-execution-disabled',
+            'paper-chain',
+            'paper-owner',
+            'paper-token',
+            'paper-spender',
+            'paper-amount',
+            'paper-native-value',
+            'paper-freshness',
+            'provider-available',
+            'provider-count',
+            'provider-agreement',
+            'paper-digest-reference',
+            'shared-block',
+            'provider-freshness-threshold',
+            'provider-freshness',
+            'provider-metadata-redacted',
+            'registry-verified',
+            'authority-verified',
+            'identity-execution-disabled',
+            'proxy-identity',
+            'implementation-identity',
+            'raw-transaction-material',
+            'call-count',
+            'root-call',
+            'implementation-delegatecall',
+            'call-depth',
+            'prohibited-call-types',
+            'touched-contracts',
+            'approval-log',
+            'allowance-state-diff',
+            'token-balance-deltas',
+            'native-balance-deltas',
+            'other-state-changes',
+          ])
+          """
+          if 'REVIEWED_INGESTION_CHECK_CODES' not in text:
+              text = text.replace(anchor, anchor + allowlists)
+          text = text.replace(
+              'const code = safeCheckCode(check.code)',
+              'const code = safeCheckCode(source, check.code)',
+          )
+          text = text.replace(
+              "function safeCheckCode(value: string): string {\n  return /^[a-z0-9-]{1,80}$/.test(value) ? value : 'invalid-check-code'\n}",
+              "function safeCheckCode(source: 'ingestion' | 'policy', value: string): string {\n  const reviewedCodes = source === 'ingestion' ? REVIEWED_INGESTION_CHECK_CODES : REVIEWED_POLICY_CHECK_CODES\n  return reviewedCodes.has(value) ? value : 'invalid-check-code'\n}",
+          )
+          path.write_text(text)
+          PY
+          npx prettier --write packages/robinhood-univ3/src/weth-allowance-simulation-review-report.ts
+          npm run lint
+          npm test
+      - name: Commit fixed source
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add packages/robinhood-univ3/src/weth-allowance-simulation-review-report.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Harden review report check-code allowlists"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
