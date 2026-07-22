@@ -192,28 +192,33 @@ export async function readVerifiedPoolSnapshot(args: {
   }
   const observedAt = new Date(Number(block.timestamp) * 1_000)
   if (Number.isNaN(observedAt.getTime())) {
-    throw new PoolVerificationError('Pool returned invalid block timestamp')
+    throw new PoolVerificationError('Block timestamp is invalid')
   }
 
   return {
-    chainId: ROBINHOOD_CHAIN_ID,
-    source: 'robinhood-uniswap-v3',
-    blockNumber: block.blockNumber,
-    observedAt,
-    poolAddress,
-    token0: {
-      chainId: ROBINHOOD_CHAIN_ID,
-      address: token0Address,
-      symbol: token0Meta.symbol,
-      decimals: token0Meta.decimals,
+    value: {
+      poolAddress,
+      token0: {
+        chainId: ROBINHOOD_CHAIN_ID,
+        address: token0Address,
+        symbol: token0Meta.symbol,
+        decimals: token0Meta.decimals,
+      },
+      token1: {
+        chainId: ROBINHOOD_CHAIN_ID,
+        address: token1Address,
+        symbol: token1Meta.symbol,
+        decimals: token1Meta.decimals,
+      },
+      feeTier: args.feeTier,
+      ...state,
     },
-    token1: {
-      chainId: ROBINHOOD_CHAIN_ID,
-      address: token1Address,
-      symbol: token1Meta.symbol,
-      decimals: token1Meta.decimals,
+    block: {
+      chainId: ROBINHOOD_UNISWAP_V3.chainId,
+      blockNumber: block.blockNumber,
+      observedAt,
     },
-    feeTier: args.feeTier,
-    ...state,
+    quality: 'complete',
+    warnings: [],
   }
 }
