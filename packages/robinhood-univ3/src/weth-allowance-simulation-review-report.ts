@@ -15,7 +15,7 @@ import {
 
 export const WETH_ALLOWANCE_SIMULATION_REVIEW_REPORT_VERSION = '1.0.0' as const
 
-const ZERO_DIGEST = `0x${'00'.repeat(32)}`
+const ZERO_DIGEST: Hex = `0x${'00'.repeat(32)}`
 
 const REVIEWED_INGESTION_CHECK_CODES = new Set([
   'fixture-object',
