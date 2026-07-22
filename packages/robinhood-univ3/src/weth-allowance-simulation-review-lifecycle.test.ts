@@ -120,9 +120,7 @@ function validFixture(): WethAllowanceSimulationOfflineFixture {
 }
 
 function validReport() {
-  return createWethAllowanceSimulationReviewReport(
-    ingestWethAllowanceSimulationFixture(validFixture(), reviewedAt),
-  )
+  return createWethAllowanceSimulationReviewReport(ingestWethAllowanceSimulationFixture(validFixture(), reviewedAt))
 }
 
 function validCurrentState(): WethAllowanceSimulationReviewCurrentState {

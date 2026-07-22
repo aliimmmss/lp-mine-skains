@@ -4,7 +4,6 @@ import { ROBINHOOD_CHAIN_ID, ROBINHOOD_UNISWAP_V3 } from './registry.js'
 import {
   WETH_ALLOWANCE_SIMULATION_REVIEW_REPORT_VERSION,
   type WethAllowanceSimulationReviewEvidence,
-  type WethAllowanceSimulationReviewReport,
 } from './weth-allowance-simulation-review-report.js'
 import { ROBINHOOD_WETH_PROXY_EVIDENCE } from './weth-proxy-evidence.js'
 
@@ -188,7 +187,8 @@ export function evaluateWethAllowanceSimulationReviewLifecycle(
 ): WethAllowanceSimulationReviewLifecycleResult {
   const reportRecord = isRecord(reportInput) && hasExactKeys(reportInput, REPORT_KEYS) ? reportInput : null
   const reportDigest = reportRecord !== null && isHex32(reportRecord.reportDigest) ? reportRecord.reportDigest : null
-  const reportIntegrity = reportRecord !== null && reportDigest !== null && verifyReportDigest(reportRecord, reportDigest)
+  const reportIntegrity =
+    reportRecord !== null && reportDigest !== null && verifyReportDigest(reportRecord, reportDigest)
   const reportChecksValid = reportRecord !== null && validateReportChecks(reportRecord.checks)
 
   let evidence: WethAllowanceSimulationReviewEvidence | null = null
@@ -206,7 +206,12 @@ export function evaluateWethAllowanceSimulationReviewLifecycle(
   }
 
   const checks: WethAllowanceSimulationReviewLifecycleCheck[] = [
-    lifecycleCheck('report-schema', reportRecord !== null, 'Review report schema is valid.', 'Review report schema is invalid.'),
+    lifecycleCheck(
+      'report-schema',
+      reportRecord !== null,
+      'Review report schema is valid.',
+      'Review report schema is invalid.',
+    ),
     lifecycleCheck(
       'report-version',
       reportRecord?.reportVersion === WETH_ALLOWANCE_SIMULATION_REVIEW_REPORT_VERSION,
@@ -299,7 +304,9 @@ export function evaluateWethAllowanceSimulationReviewLifecycle(
     ),
     lifecycleCheck(
       'implementation-match',
-      evidence !== null && currentState !== null && currentState.implementationAddress === evidence.implementationAddress,
+      evidence !== null &&
+        currentState !== null &&
+        currentState.implementationAddress === evidence.implementationAddress,
       'Implementation identity matches.',
       'Implementation identity drifted or is missing.',
     ),
@@ -377,8 +384,7 @@ export function evaluateWethAllowanceSimulationReviewLifecycle(
           'The offline review record remains valid for human review only. This status does not authorize implementation, simulation-provider access, signing, or execution.',
         ]
       : failedChecks.map((check) => check.message)
-  const currentStateDigest =
-    currentState === null ? ZERO_DIGEST : keccak256(stringToHex(canonicalJson(currentState)))
+  const currentStateDigest = currentState === null ? ZERO_DIGEST : keccak256(stringToHex(canonicalJson(currentState)))
 
   const resultWithoutDigest = {
     lifecycleVersion: WETH_ALLOWANCE_SIMULATION_REVIEW_LIFECYCLE_VERSION,
@@ -420,10 +426,7 @@ function parseCurrentState(value: unknown): WethAllowanceSimulationReviewCurrent
     currentAllowance: expectNonNegativeBigint(record.currentAllowance, 'currentState.currentAllowance'),
     registryVerified: expectBoolean(record.registryVerified, 'currentState.registryVerified'),
     authorityStatus: expectNonEmptyString(record.authorityStatus, 'currentState.authorityStatus'),
-    authoritySourceAgreement: expectBoolean(
-      record.authoritySourceAgreement,
-      'currentState.authoritySourceAgreement',
-    ),
+    authoritySourceAgreement: expectBoolean(record.authoritySourceAgreement, 'currentState.authoritySourceAgreement'),
     unresolvedAuthorityBoundaryCount: expectNonNegativeInteger(
       record.unresolvedAuthorityBoundaryCount,
       'currentState.unresolvedAuthorityBoundaryCount',
@@ -573,7 +576,8 @@ function validateReportChecks(value: unknown): boolean {
     if (!isRecord(item) || !hasExactKeys(item, ['source', 'code', 'status', 'message'])) return false
     if (item.status !== 'pass' || typeof item.message !== 'string') return false
     if (item.source === 'renderer') return typeof item.code === 'string' && REVIEWED_RENDERER_CHECK_CODES.has(item.code)
-    if (item.source === 'ingestion') return typeof item.code === 'string' && REVIEWED_INGESTION_CHECK_CODES.has(item.code)
+    if (item.source === 'ingestion')
+      return typeof item.code === 'string' && REVIEWED_INGESTION_CHECK_CODES.has(item.code)
     if (item.source === 'policy') return typeof item.code === 'string' && REVIEWED_POLICY_CHECK_CODES.has(item.code)
     return false
   })
@@ -581,9 +585,7 @@ function validateReportChecks(value: unknown): boolean {
 
 function verifyReportDigest(record: Record<string, unknown>, digest: Hex): boolean {
   try {
-    const reportWithoutDigest = Object.fromEntries(
-      Object.entries(record).filter(([key]) => key !== 'reportDigest'),
-    )
+    const reportWithoutDigest = Object.fromEntries(Object.entries(record).filter(([key]) => key !== 'reportDigest'))
     return keccak256(stringToHex(canonicalJson(reportWithoutDigest))) === digest
   } catch {
     return false
