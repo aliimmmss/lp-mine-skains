@@ -127,6 +127,20 @@ export type {
   WethAllowanceSimulationReviewLifecycleCheck,
   WethAllowanceSimulationReviewLifecycleResult,
 } from './weth-allowance-simulation-review-lifecycle.js'
+export {
+  WETH_ALLOWANCE_REVOCATION_REVIEW_INTENT_LIFETIME_SECONDS,
+  WETH_ALLOWANCE_REVOCATION_REVIEW_INTENT_VERSION,
+  createWethAllowanceRevocationReviewIntent,
+  digestWethAllowanceRevocationReviewIntentBody,
+} from './weth-allowance-revocation-review-intent.js'
+export type {
+  WethAllowanceRevocationReviewIntent,
+  WethAllowanceRevocationReviewIntentBody,
+  WethAllowanceRevocationReviewIntentCheck,
+  WethAllowanceRevocationReviewIntentInput,
+  WethAllowanceRevocationReviewIntentLifecycleReference,
+  WethAllowanceRevocationReviewIntentResult,
+} from './weth-allowance-revocation-review-intent.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
