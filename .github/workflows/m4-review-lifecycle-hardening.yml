@@ -42,45 +42,35 @@ jobs:
           text = text.replace(
               "  const reportChecksValid = reportRecord !== null && validateReportChecks(reportRecord.checks)\n",
               "  const reportChecksValid = reportRecord !== null && validateReportChecks(reportRecord.checks)\n  const reportMetadataValid =\n    reportRecord !== null &&\n    isHex32(reportRecord.ingestionReviewDigest) &&\n    isHex32(reportRecord.policyEvidenceDigest) &&\n    reportRecord.fixtureVersion === WETH_ALLOWANCE_SIMULATION_FIXTURE_VERSION &&\n    reportRecord.sourceFormat === WETH_ALLOWANCE_SIMULATION_SOURCE_FORMAT &&\n    reportRecord.policyVersion === WETH_ALLOWANCE_SIMULATION_POLICY_VERSION\n",
+              1,
           )
-          marker = """    lifecycleCheck(
-              'report-digest',
-              reportDigest !== null,
-              'Review report digest is valid.',
-              'Review report digest is malformed.',
-            ),
+          integrity_marker = """    lifecycleCheck(
+              'report-integrity',
           """
-          addition = """    lifecycleCheck(
+          metadata_check = """    lifecycleCheck(
               'report-metadata',
               reportMetadataValid,
               'Review report metadata is pinned and complete.',
               'Review report metadata is missing, malformed, or unpinned.',
             ),
           """
-          if addition not in text:
-              text = text.replace(marker, marker + addition)
+          if metadata_check not in text:
+              if integrity_marker not in text:
+                  raise SystemExit('report-integrity marker not found')
+              text = text.replace(integrity_marker, metadata_check + integrity_marker, 1)
           text = text.replace(
               "    evidence.operation === WETH_ALLOWANCE_REVOCATION_OPERATION &&\n    evidence.chainId === ROBINHOOD_CHAIN_ID &&",
               "    evidence.operation === WETH_ALLOWANCE_REVOCATION_OPERATION &&\n    evidence.chainId === ROBINHOOD_CHAIN_ID &&\n    evidence.owner !== zeroAddress &&",
+              1,
           )
           text = text.replace(
               "    evidence.registryVerified &&\n    evidence.authoritySourceAgreement &&",
               "    evidence.registryVerified &&\n    evidence.authorityStatus === ROBINHOOD_WETH_AUTHORITY_EVIDENCE.status &&\n    evidence.authoritySourceAgreement &&",
+              1,
           )
-          old = """function validateReportChecks(value: unknown): boolean {
-            if (!Array.isArray(value) || value.length === 0) return false
-            return value.every((item) => {
-              if (!isRecord(item) || !hasExactKeys(item, ['source', 'code', 'status', 'message'])) return false
-              if (item.status !== 'pass' || typeof item.message !== 'string') return false
-              if (item.source === 'renderer') return typeof item.code === 'string' && REVIEWED_RENDERER_CHECK_CODES.has(item.code)
-              if (item.source === 'ingestion')
-                return typeof item.code === 'string' && REVIEWED_INGESTION_CHECK_CODES.has(item.code)
-              if (item.source === 'policy') return typeof item.code === 'string' && REVIEWED_POLICY_CHECK_CODES.has(item.code)
-              return false
-            })
-          }
-          """
-          new = """function validateReportChecks(value: unknown): boolean {
+          start = text.index('function validateReportChecks(value: unknown): boolean {')
+          end = text.index('\nfunction verifyReportDigest', start)
+          replacement = """function validateReportChecks(value: unknown): boolean {
             if (!Array.isArray(value) || value.length === 0) return false
 
             const observed = {
@@ -122,21 +112,23 @@ jobs:
             return left.size === right.size && [...left].every((value) => right.has(value))
           }
           """
-          if old not in text:
-              raise SystemExit('validateReportChecks block not found')
-          text = text.replace(old, new)
+          text = text[:start] + replacement + text[end:]
           path.write_text(text)
 
           test_path = Path('packages/robinhood-univ3/src/weth-allowance-simulation-review-lifecycle.test.ts')
           test = test_path.read_text()
-          test = test.replace(
-              "      ['report-digest', { ...report, reportDigest: 'not-a-digest' }],\n",
-              "      ['report-digest', { ...report, reportDigest: 'not-a-digest' }],\n      ['report-metadata', { ...report, fixtureVersion: 'forged-version' }],\n",
-          )
-          test = test.replace(
-              "      ['report-checks', { ...report, checks: [{ source: 'renderer', code: 'unknown', status: 'pass', message: 'x' }] }],\n",
-              "      ['report-checks', { ...report, checks: [{ source: 'renderer', code: 'unknown', status: 'pass', message: 'x' }] }],\n      ['report-checks', { ...report, checks: [report.checks[0]!] }],\n",
-          )
+          if "['report-metadata'," not in test:
+              test = test.replace(
+                  "      ['report-digest', { ...report, reportDigest: 'not-a-digest' }],\n",
+                  "      ['report-digest', { ...report, reportDigest: 'not-a-digest' }],\n      ['report-metadata', { ...report, fixtureVersion: 'forged-version' }],\n",
+                  1,
+              )
+          subset = "      ['report-checks', { ...report, checks: [report.checks[0]!] }],\n"
+          if subset not in test:
+              unknown = "      ['report-checks', { ...report, checks: [{ source: 'renderer', code: 'unknown', status: 'pass', message: 'x' }] }],\n"
+              if unknown not in test:
+                  raise SystemExit('report-checks test marker not found')
+              test = test.replace(unknown, unknown + subset, 1)
           test_path.write_text(test)
           PY
           npx prettier --write \
