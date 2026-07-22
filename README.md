@@ -126,6 +126,7 @@ packages/
   security/            contract registry, hook policy, transaction gates
 docs/
   ARCHITECTURE.md
+  CURRENT_STATUS.md
   SECURITY.md
   METRICS.md
   ROBINHOOD_WORKER.md
@@ -156,6 +157,8 @@ The project is not successful because it displays a high APR. It is successful w
 - The exact reason a pool was selected, rejected, opened, or closed
 
 ## Status
+
+See [Current project status](docs/CURRENT_STATUS.md) for the explicit implemented and non-authorized capability boundary.
 
 **M0, the Robinhood portion of M1, M2 analysis, and M3 read-only monitoring are operational. M4 readiness, authority evidence, paper mode, and simulation-policy design are complete, but all execution capabilities remain disabled. No live execution code exists.**
 
