@@ -163,6 +163,25 @@ export type {
   WethAllowanceRevocationReviewConfirmationLifecycleInput,
   WethAllowanceRevocationReviewConfirmationLifecycleResult,
 } from './weth-allowance-revocation-review-confirmation-lifecycle.js'
+export {
+  POSITION_MANAGER_DISPLAY_LABEL,
+  ROBINHOOD_CHAIN_DISPLAY_NAME,
+  WETH_ALLOWANCE_REVOCATION_FINAL_REVIEW_SUMMARY_VERSION,
+  WETH_DECIMALS,
+  WETH_DISPLAY_LABEL,
+  WETH_PROXY_DISPLAY_LABEL,
+  createWethAllowanceRevocationFinalReviewSummary,
+  digestWethAllowanceRevocationFinalReviewSummaryBody,
+  renderWethAllowanceRevocationFinalReviewSummary,
+} from './weth-allowance-revocation-final-review-summary.js'
+export type {
+  WethAllowanceRevocationFinalReviewSummary,
+  WethAllowanceRevocationFinalReviewSummaryBody,
+  WethAllowanceRevocationFinalReviewSummaryCheck,
+  WethAllowanceRevocationFinalReviewSummaryInput,
+  WethAllowanceRevocationFinalReviewSummaryLifecycleReference,
+  WethAllowanceRevocationFinalReviewSummaryResult,
+} from './weth-allowance-revocation-final-review-summary.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
