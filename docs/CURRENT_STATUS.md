@@ -22,6 +22,7 @@ This document records the current reviewed project boundary after completion of 
 - offline review-record lifecycle evaluation with exact report/current-state validation and stable fail-closed invalidation reasons
 - immutable offline typed WETH allowance-revocation review intents with deterministic IDs, full build-commit binding, exact evidence references, and fixed 300-second expiry
 - deterministic offline deliberate-confirmation records with exact-key parsing, intent-ID recomputation, exact phrase and identity matching, strict timing checks, explicit acknowledgements, and non-reusable authority
+- offline deliberate-confirmation lifecycle evaluation with strict confirmation-result validation, confirmation replay, current typed-intent reproduction, deterministic lifecycle digests, and fail-closed invalidation on expiry or report, state, identity, allowance, registry, authority, provider, freshness, incident, build, or generation drift
 
 ## Explicitly not implemented or authorized
 
@@ -35,4 +36,4 @@ This document records the current reviewed project boundary after completion of 
 - live or tiny-live execution
 - automated capital deployment
 
-Every later M4 capability requires a separately reviewed issue and pull request. All current policy, ingestion, review-report, lifecycle, typed-intent, deliberate-confirmation, and evidence outputs remain transaction-build-unauthorized, implementation-unauthorized, simulation-unauthorized, wallet-request-unauthorized, signing-ineligible, execution-ineligible, and non-reusable as authority.
+Every later M4 capability requires a separately reviewed issue and pull request. All current policy, ingestion, review-report, review lifecycle, typed-intent, deliberate-confirmation, confirmation-lifecycle, and evidence outputs remain transaction-build-unauthorized, implementation-unauthorized, simulation-unauthorized, wallet-request-unauthorized, signing-ineligible, execution-ineligible, and non-reusable as authority.
