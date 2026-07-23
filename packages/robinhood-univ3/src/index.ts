@@ -182,6 +182,22 @@ export type {
   WethAllowanceRevocationFinalReviewSummaryLifecycleReference,
   WethAllowanceRevocationFinalReviewSummaryResult,
 } from './weth-allowance-revocation-final-review-summary.js'
+export {
+  WETH_ALLOWANCE_REVOCATION_STATIC_REVIEW_CONTENT_TYPE,
+  WETH_ALLOWANCE_REVOCATION_STATIC_REVIEW_CSP,
+  WETH_ALLOWANCE_REVOCATION_STATIC_REVIEW_DOCUMENT_VERSION,
+  WETH_ALLOWANCE_REVOCATION_STATIC_REVIEW_HEADERS,
+  createWethAllowanceRevocationStaticReviewDocument,
+  digestWethAllowanceRevocationStaticReviewDocumentMetadata,
+  escapeWethAllowanceRevocationStaticReviewText,
+} from './weth-allowance-revocation-static-review-document.js'
+export type {
+  WethAllowanceRevocationStaticReviewDocument,
+  WethAllowanceRevocationStaticReviewDocumentCheck,
+  WethAllowanceRevocationStaticReviewDocumentInput,
+  WethAllowanceRevocationStaticReviewDocumentMetadata,
+  WethAllowanceRevocationStaticReviewDocumentResult,
+} from './weth-allowance-revocation-static-review-document.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
