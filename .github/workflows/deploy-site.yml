@@ -51,9 +51,18 @@ jobs:
         run: |
           npm ci
           npm run build
+      # Idempotent: creates the Pages project on first run, harmlessly errors
+      # (ignored) once it exists. Avoids a manual dashboard step.
+      - name: Ensure Pages project exists
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create lp-mine-monitor --production-branch=main
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web/dist --project-name=lp-mine-monitor --branch=main
+          command: pages deploy web/dist --project-name=lp-mine-monitor --branch=main --commit-dirty=true
