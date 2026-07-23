@@ -1,0 +1,74 @@
+name: M4 Confirmation Lifecycle Bootstrap
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Export, format, and validate confirmation lifecycle
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('packages/robinhood-univ3/src/index.ts')
+          source = path.read_text()
+          marker = """export type {
+            WethAllowanceRevocationReviewConfirmation,
+            WethAllowanceRevocationReviewConfirmationBody,
+            WethAllowanceRevocationReviewConfirmationCheck,
+            WethAllowanceRevocationReviewConfirmationInput,
+            WethAllowanceRevocationReviewConfirmationResult,
+          } from './weth-allowance-revocation-review-confirmation.js'
+          """
+          addition = marker + """export {
+            WETH_ALLOWANCE_REVOCATION_REVIEW_CONFIRMATION_LIFECYCLE_VERSION,
+            evaluateWethAllowanceRevocationReviewConfirmationLifecycle,
+          } from './weth-allowance-revocation-review-confirmation-lifecycle.js'
+          export type {
+            WethAllowanceRevocationReviewConfirmationLifecycleCheck,
+            WethAllowanceRevocationReviewConfirmationLifecycleInput,
+            WethAllowanceRevocationReviewConfirmationLifecycleResult,
+          } from './weth-allowance-revocation-review-confirmation-lifecycle.js'
+          """
+          if 'evaluateWethAllowanceRevocationReviewConfirmationLifecycle' not in source:
+              if marker not in source:
+                  raise SystemExit('confirmation export marker not found')
+              source = source.replace(marker, addition, 1)
+          path.write_text(source)
+          PY
+          npx prettier --write \
+            packages/robinhood-univ3/src/index.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-review-confirmation-lifecycle.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-review-confirmation-lifecycle.test.ts
+          npm run lint
+          npm run typecheck
+          npm test
+      - name: Commit validated source
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            packages/robinhood-univ3/src/index.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-review-confirmation-lifecycle.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-review-confirmation-lifecycle.test.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Format and export offline confirmation lifecycle"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
