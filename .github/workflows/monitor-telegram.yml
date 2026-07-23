@@ -17,7 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      LP_MINE_DATABASE_PATH: ./data/robinhood-univ3.sqlite
+      # Absolute path: npm runs workspace scripts with cwd=apps/worker, so a
+      # relative ./data resolved under apps/worker while the cache used the repo
+      # root — the DB never matched hashFiles() and state never persisted.
+      LP_MINE_DATABASE_PATH: ${{ github.workspace }}/data/robinhood-univ3.sqlite
       LP_MINE_EXPECTED_INTERVAL_SECONDS: '3600'
       LP_MINE_MAXIMUM_OBSERVATION_AGE_SECONDS: '5400'
       ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}

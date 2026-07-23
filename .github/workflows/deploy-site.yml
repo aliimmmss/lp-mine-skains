@@ -18,7 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      LP_MINE_DATABASE_PATH: ./data/robinhood-univ3.sqlite
+      # Absolute path: npm runs workspace scripts with cwd=apps/worker, so a
+      # relative ./data would resolve under apps/worker and miss the cached DB.
+      LP_MINE_DATABASE_PATH: ${{ github.workspace }}/data/robinhood-univ3.sqlite
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
