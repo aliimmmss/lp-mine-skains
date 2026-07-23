@@ -1,0 +1,88 @@
+name: M4 Static Review Document Hardening
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Harden static review interaction denylist
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('packages/robinhood-univ3/src/weth-allowance-revocation-static-review-document.ts')
+          source = source_path.read_text()
+          source = source.replace(
+              """  'svg',
+] as const""",
+              """  'svg',
+  'base',
+  'area',
+  'details',
+  'summary',
+  'dialog',
+  'menu',
+  'fieldset',
+  'label',
+  'option',
+  'optgroup',
+] as const""",
+              1,
+          )
+          source = source.replace(
+              """    /\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style)\s*=/i.test(html)
+""",
+              """    /\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style|contenteditable|tabindex|autofocus|popover|popovertarget|download|draggable|target|usemap)\s*=/i.test(html)
+""",
+              1,
+          )
+          source_path.write_text(source)
+
+          test_path = Path('packages/robinhood-univ3/src/weth-allowance-revocation-static-review-document.test.ts')
+          test = test_path.read_text()
+          test = test.replace(
+              """expect(html).not.toMatch(/<\\s*(script|style|link|img|iframe|object|embed|form|button|input|select|textarea|a|video|audio|canvas|svg)(?:\\s|>)/i)""",
+              """expect(html).not.toMatch(/<\\s*(script|style|link|img|iframe|object|embed|form|button|input|select|textarea|a|video|audio|canvas|svg|base|area|details|summary|dialog|menu|fieldset|label|option|optgroup)(?:\\s|>)/i)""",
+              1,
+          )
+          test = test.replace(
+              """expect(html).not.toMatch(/\\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style)\\s*=/i)""",
+              """expect(html).not.toMatch(/\\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style|contenteditable|tabindex|autofocus|popover|popovertarget|download|draggable|target|usemap)\\s*=/i)""",
+              1,
+          )
+          test_path.write_text(test)
+          PY
+          npx prettier --write \
+            packages/robinhood-univ3/src/weth-allowance-revocation-static-review-document.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-static-review-document.test.ts
+          npm run lint
+          npm run typecheck
+          npm test
+      - name: Commit hardening changes
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            packages/robinhood-univ3/src/weth-allowance-revocation-static-review-document.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-static-review-document.test.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Harden static review interaction denylist"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
