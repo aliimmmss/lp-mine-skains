@@ -246,7 +246,7 @@ describe('static read-only WETH allowance-revocation review document', () => {
     expect(html).toContain('OFFLINE FINAL REVIEW SUMMARY')
     expect(html).toContain('NO SIGNING OR EXECUTION AUTHORITY')
     expect(html).not.toMatch(
-      /<\s*(script|style|link|img|iframe|object|embed|form|button|input|select|textarea|a|video|audio|canvas|svg)(?:\s|>)/i,
+      /<\s*(script|style|link|img|iframe|object|embed|form|button|input|select|textarea|a|video|audio|canvas|svg|base|area|details|summary|dialog|menu|fieldset|label|option|optgroup)(?:\s|>)/i,
     )
     expect(html).not.toMatch(/\son[a-z0-9_-]+\s*=/i)
     expect(html).not.toMatch(
