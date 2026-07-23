@@ -551,17 +551,33 @@ const favicon =
         render()
       })
 
-      async function init(): Promise<void> {
+      // Auto-refresh cadence. GeckoTerminal's free API allows ~30 calls/min and
+      // each refresh is 3 page-calls, so 15s (12 calls/min) stays safely under.
+      // The volume figures are 1h/6h/24h aggregates — they do not change faster.
+      const REFRESH_MS = 15_000
+      let refreshing = false
+
+      async function refresh(): Promise<void> {
+        if (refreshing || document.hidden) return
+        refreshing = true
         const live = document.getElementById('opps-live')
         try {
           current = await fetchAndRankOpportunities(3)
           if (live) live.textContent = 'live · ' + new Date().toISOString().slice(11, 19) + ' UTC'
           render()
         } catch {
-          if (live) live.textContent = 'live fetch failed — showing build snapshot'
+          if (live) live.textContent = 'live fetch failed — retrying'
+        } finally {
+          refreshing = false
         }
       }
-      void init()
+
+      void refresh()
+      setInterval(() => void refresh(), REFRESH_MS)
+      // Refresh immediately when the tab becomes visible again.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) void refresh()
+      })
     </script>
   </body>
 </html>
