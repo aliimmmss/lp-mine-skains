@@ -164,7 +164,15 @@ Requires at least two observations that include fee-growth data (captured by `po
 - `LP_MINE_FEE_REFERENCE_LIQUIDITY`, default `1000000000000000000` (1e18) — the amount of liquidity the daily-fee figures are expressed per. Absolute figures scale linearly with this; the cross-tier ranking does not depend on it.
 - `LP_MINE_HISTORY_LIMIT`, default `10000`.
 
-Per-pool status is `complete`, `partial` (short measured window, zero active liquidity, or a non-complete observation in the pair), or `insufficient` (fewer than two fee-growth observations in the window). Fees are realized only while a position stays in range; the numbers are an estimate of past fees per unit of liquidity, not a forward APR or a recommendation to deploy capital.
+Per-pool status is `complete`, `partial` (short measured window, zero active liquidity, or a non-complete observation in the pair), or `insufficient` (fewer than two fee-growth observations in the window). Each pool also reports `occupancy`: for candidate price bands (±1/2/5/10%) around the current tick, the fraction of stored observations whose tick fell inside the band. This is a backward-looking range-width signal — narrower bands earn more per unit capital but leave range sooner. Fees are realized only while a position stays in range; the numbers are an estimate of past fees per unit of liquidity, not a forward APR or a recommendation to deploy capital.
+
+A daily Telegram fee digest of this ranking is available:
+
+```bash
+npm run --workspace @lp-mine/worker fees:notify:telegram
+```
+
+It reads the accumulated observation database and sends the ranked digest to the configured Telegram chat (same `LP_MINE_TELEGRAM_*` variables as the monitor). The `Telegram fee digest` GitHub Actions workflow runs it daily as a read-only consumer of the hourly monitor's cached database; it never writes that cache.
 
 ### Historical replay
 

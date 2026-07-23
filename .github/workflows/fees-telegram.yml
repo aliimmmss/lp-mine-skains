@@ -1,0 +1,48 @@
+name: Telegram fee digest
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-fee-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LP_MINE_DATABASE_PATH: ./data/robinhood-univ3.sqlite
+      ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+      LP_MINE_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      LP_MINE_TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || vars.TELEGRAM_CHAT_ID }}
+      LP_MINE_TELEGRAM_MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID || vars.TELEGRAM_MESSAGE_THREAD_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: mkdir -p data
+      # Read-only consumer of the monitor workflow's accumulated database.
+      # Restores the latest monitor cache but never saves, so it cannot
+      # conflict with the hourly Telegram monitor that owns that cache.
+      - name: Restore monitoring state (read-only)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/robinhood-univ3.sqlite
+            data/robinhood-univ3.sqlite-wal
+            data/robinhood-univ3.sqlite-shm
+          key: fee-digest-never-writes
+          restore-keys: |
+            monitor-db-${{ runner.os }}-
+      - run: npm run build
+      - name: Send Telegram fee digest
+        run: npm run --workspace @lp-mine/worker fees:notify:telegram
