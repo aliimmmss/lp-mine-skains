@@ -1,0 +1,64 @@
+name: M4 Final Review Renderer Hardening V2
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply strict renderer patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/m4-final-review-renderer-hardening.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY", start)
+          script = textwrap.dedent(workflow[start:end])
+          script = script.replace(
+              "const { summaryId: _summaryId, ...body } = summary",
+              "const { summaryId, ...body } = summary\n            expect(summaryId).toBe(summary.summaryId)",
+              1,
+          )
+          exec(compile(script, 'renderer-hardening.py', 'exec'))
+          PY
+      - name: Format hardened files
+        run: |
+          npx prettier --write \
+            packages/robinhood-univ3/src/weth-allowance-revocation-final-review-summary.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-final-review-summary.test.ts
+      - name: Lint hardened files
+        run: npm run lint
+      - name: Typecheck hardened files
+        run: npm run typecheck
+      - name: Test hardened files
+        run: npm test
+      - name: Commit hardening changes
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            packages/robinhood-univ3/src/weth-allowance-revocation-final-review-summary.ts \
+            packages/robinhood-univ3/src/weth-allowance-revocation-final-review-summary.test.ts
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Harden offline final review summary renderer"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
