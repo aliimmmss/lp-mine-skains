@@ -45,6 +45,7 @@ The repository now includes a read-only Robinhood Chain data, analysis, monitori
 - Deterministic offline deliberate-confirmation records with exact phrase, identity, timing, and acknowledgement checks; all wallet, signing, execution, and reusable-authority flags remain disabled
 - Offline deliberate-confirmation lifecycle evaluation with confirmation replay, current-intent reproduction, deterministic lifecycle digests, and fail-closed invalidation on expiry or reviewed-state drift
 - Deterministic offline final-review summaries with pinned display metadata, full critical addresses and evidence digests, immutable summary IDs, strict runtime validation, and safe plain-text rendering
+- Framework-neutral static review documents with escaped validated text, deterministic HTML and document hashes, pinned CSP and serving headers, and explicit rejection of scripts, controls, navigation, external resources, executable URL schemes, and interaction attributes
 
 Start with the [Robinhood worker runbook](docs/ROBINHOOD_WORKER.md) for setup, commands, environment variables, evidence rules, report statuses, and current limitations.
 
@@ -112,7 +113,7 @@ The worker commands are read-only. They do not sign transactions or require wall
 - Preflight simulation
 - Receipt-based accounting
 
-The [guarded manual execution design gate](docs/M4_GUARDED_EXECUTION_DESIGN.md), authority evidence, paper-mode evaluator, inert simulation-evidence policy, offline sanitized evidence ingestion, deterministic operator-review reporting, offline review-record invalidation lifecycle, immutable typed review-intent boundary, offline deliberate-confirmation record, offline confirmation lifecycle invalidation, and deterministic offline final-review summary are complete. M4 remains execution-disabled: no browser review UI, wallet connection or request, calldata generation, provider network simulation call, signature request, transaction submission, or receipt reconciliation is authorized or implemented. Summary, confirmation, and lifecycle outputs are non-reusable review evidence only. Each later capability requires a separately reviewed issue and pull request.
+The [guarded manual execution design gate](docs/M4_GUARDED_EXECUTION_DESIGN.md), authority evidence, paper-mode evaluator, inert simulation-evidence policy, offline sanitized evidence ingestion, deterministic operator-review reporting, offline review-record invalidation lifecycle, immutable typed review-intent boundary, offline deliberate-confirmation record, offline confirmation lifecycle invalidation, deterministic offline final-review summary, and framework-neutral static review-document contract are complete. M4 remains execution-disabled: no running browser app or route, interactive review controls, wallet connection or request, calldata generation, provider network simulation call, signature request, transaction submission, or receipt reconciliation is authorized or implemented. Static documents, summaries, confirmations, and lifecycle outputs are non-reusable review evidence only. Each later capability requires a separately reviewed issue and pull request.
 
 ### M5 — Limited automation
 
@@ -167,7 +168,7 @@ The project is not successful because it displays a high APR. It is successful w
 
 See [Current project status](docs/CURRENT_STATUS.md) for the explicit implemented and non-authorized capability boundary.
 
-**M0, the Robinhood portion of M1, M2 analysis, and M3 read-only monitoring are operational. M4 readiness, authority evidence, paper mode, simulation-policy design, offline sanitized evidence ingestion, operator-review reporting, review-record invalidation, immutable typed review intents, deliberate offline confirmation records, confirmation lifecycle invalidation, and deterministic offline final-review summaries are complete, but all execution capabilities remain disabled. No live execution code exists.**
+**M0, the Robinhood portion of M1, M2 analysis, and M3 read-only monitoring are operational. M4 readiness, authority evidence, paper mode, simulation-policy design, offline sanitized evidence ingestion, operator-review reporting, review-record invalidation, immutable typed review intents, deliberate offline confirmation records, confirmation lifecycle invalidation, deterministic offline final-review summaries, and static read-only review documents are complete, but all execution capabilities remain disabled. No live execution code exists.**
 
 The historical factory deployment/bootstrap block is not yet pinned, so historical scans must use a separately verified start block rather than a guessed value.
 

@@ -24,10 +24,12 @@ This document records the current reviewed project boundary after completion of 
 - deterministic offline deliberate-confirmation records with exact-key parsing, intent-ID recomputation, exact phrase and identity matching, strict timing checks, explicit acknowledgements, and non-reusable authority
 - offline deliberate-confirmation lifecycle evaluation with strict confirmation-result validation, confirmation replay, current typed-intent reproduction, deterministic lifecycle digests, and fail-closed invalidation on expiry or report, state, identity, allowance, registry, authority, provider, freshness, incident, build, or generation drift
 - deterministic offline final-review summaries with confirmation-lifecycle replay, current-intent reproduction, pinned chain/contract/token/spender display metadata, full critical fields and evidence digests, immutable summary IDs, fixed non-authorization warnings, and strict unknown-input text rendering that rejects forged runtime summaries
+- deterministic framework-neutral static HTML review documents with escaped validated summary text, immutable HTML and document digests, pinned content type and CSP/security/cache headers, and fail-closed denial of scripts, styles, links, resources, forms, controls, expandable elements, dialogs, navigation, event handlers, interaction attributes, and external or executable URL schemes
 
 ## Explicitly not implemented or authorized
 
-- browser review UI, buttons, forms, or confirmation controls
+- a running web app, route, server, deployment, or frontend framework
+- interactive browser review UI, buttons, forms, expandable controls, links, or wallet UI
 - browser-wallet connection or wallet request
 - ABI encoding or selector-byte generation
 - complete calldata or transaction-request creation
@@ -38,4 +40,4 @@ This document records the current reviewed project boundary after completion of 
 - live or tiny-live execution
 - automated capital deployment
 
-Every later M4 capability requires a separately reviewed issue and pull request. All current policy, ingestion, review-report, review lifecycle, typed-intent, deliberate-confirmation, confirmation-lifecycle, final-review-summary, and evidence outputs remain transaction-build-unauthorized, implementation-unauthorized, simulation-unauthorized, wallet-request-unauthorized, signing-ineligible, execution-ineligible, and non-reusable as authority.
+Every later M4 capability requires a separately reviewed issue and pull request. All current policy, ingestion, review-report, review lifecycle, typed-intent, deliberate-confirmation, confirmation-lifecycle, final-review-summary, static-review-document, and evidence outputs remain browser-interaction-unauthorized, transaction-build-unauthorized, implementation-unauthorized, simulation-unauthorized, wallet-request-unauthorized, signing-ineligible, execution-ineligible, and non-reusable as authority.
