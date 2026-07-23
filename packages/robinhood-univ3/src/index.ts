@@ -49,6 +49,8 @@ export type { SupportedFeeTier } from './registry.js'
 export { createViemSwapEventSource, normalizeSwapLog } from './swap-event-source.js'
 export { inspectSwapEvidenceCoverage } from './swap-integrity.js'
 export type { SwapEvidenceCoverage } from './swap-integrity.js'
+export { backfillSwapEvents } from './swap-backfill.js'
+export type { BackfillOptions, BackfillResult } from './swap-backfill.js'
 export { syncSwapEvents } from './swap-indexer.js'
 export type { IndexedSwap, SwapEventSink, SwapEventSource } from './swap-indexer.js'
 export { SqliteSwapIndexStore } from './swap-store.js'
@@ -233,6 +235,10 @@ export type PoolState = {
   tick: number
   tickSpacing: number
   activeLiquidity: bigint
+  /** Cumulative token0 fees per unit of active liquidity (Q128). Optional for legacy observations. */
+  feeGrowthGlobal0X128?: bigint
+  /** Cumulative token1 fees per unit of active liquidity (Q128). Optional for legacy observations. */
+  feeGrowthGlobal1X128?: bigint
 }
 
 export type PoolSnapshot = SourceStamped<PoolIdentity & PoolState>

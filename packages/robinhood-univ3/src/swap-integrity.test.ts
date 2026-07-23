@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 import { inspectSwapEvidenceCoverage } from './swap-integrity.js'
@@ -10,7 +12,7 @@ describe('swap evidence coverage', () => {
     const store = new SqliteSwapIndexStore(':memory:')
     store.close()
 
-    const path = `/tmp/lp-mine-swap-coverage-${process.pid}-${Date.now()}.sqlite`
+    const path = join(tmpdir(), `lp-mine-swap-coverage-${process.pid}-${Date.now()}.sqlite`)
     const initialized = new SqliteSwapIndexStore(path)
     initialized.close()
     const database = new DatabaseSync(path)

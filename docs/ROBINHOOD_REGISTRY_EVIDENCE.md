@@ -65,6 +65,41 @@ The command fails when:
 - a pool reports an unexpected tick spacing
 - a canonical pool snapshot fails its existing immutable-metadata checks
 
+## Factory deployment and pool creation block evidence
+
+Verified `2026-07-23` against the official public Robinhood Chain RPC (chain ID `4663`, chain tip near block `17095011`). Two independent read-only methods were cross-checked:
+
+1. `eth_getLogs` for the factory's constructor-emitted `OwnerChanged(address(0), owner)` event
+2. `eth_getTransactionReceipt` of the emitting transaction, confirming `contractAddress` equals the pinned factory and `status` is success
+
+| Field | Value |
+| --- | --- |
+| Factory deployment block | `8930` (`0x22e2`) |
+| Block timestamp | `2026-05-22T17:58:26.000Z` |
+| Deployment transaction | `0x8add72fbcad4bf7732336de35dcd06b582c1501d0832c4710a30850a7cff8977` |
+| Block hash | `0x33e6e93cf3f8520bf51b844961e3938fd2d47013b7f0b32ed662e24cb89ac901` |
+| Deployer and initial owner | `0x9701fb0ade1e269c8f64ec0c7b3cfadb31a13a52` |
+| Ownership transferred at | block `31820` (`0x7c4c`) to `0x2bad8182c09f50c8318d769245bea52c32be46cd` |
+
+Canonical WETH/USDG `PoolCreated` events from the pinned factory, filtered by token topics. Every emitted pool address matches the pinned registry exactly:
+
+| Fee tier | Creation block | Pool address | Transaction |
+| ---: | ---: | --- | --- |
+| 3000 | `50716` | `0xa9188730Fe85Be88ad499D7d52B099e800fB0334` | `0x0918fcbef83f09356b954cd81e5491d04f2887dd7aee5f8891f68377ab65fd6f` |
+| 500 | `169464` | `0x69BfaF19C9f377BB306a89aEd9F6B07e2c1a8d9a` | `0xf094daa6ac45a775c7feb576137d05ef983631797594a9ca87b7321beb319d36` |
+| 10000 | `889049` | `0x5f009E071F07e92B6C624e83F52F17bBDa34680D` | `0xba397093218d98290940929be394871b6a8be586cad4c933c7f7765960a9b64c` |
+| 100 | `1506281` | `0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca` | `0x6489c237bc87c5bbb8da6ee8a51213711532d47d97e87fc70061b63618edc594` |
+
+Usage:
+
+- `LP_MINE_START_BLOCK=8930` for `pools:scan`
+- `LP_MINE_SWAP_START_BLOCK=50716` (earliest canonical pool) for `swaps:scan`
+
+Caveats:
+
+- This record was produced from the single official public RPC. The stricter two-provider standard used elsewhere in this document should be applied before any execution-eligible use; for read-only indexing it is sufficient because the indexer independently re-verifies pool metadata fail-closed.
+- The public RPC prunes historical state (state at block `1` was unavailable), but log and receipt evidence used here does not depend on archival state.
+
 ## External explorer inconsistency
 
 During the readiness review, indexed Blockscout page/search results classified some pinned addresses as EOAs. The direct two-source RPC audit found deployed bytecode and matching factory results at those same addresses. Explorer presentation is therefore treated as supporting context rather than execution evidence. Any future disagreement must fail closed and be re-verified from current chain state through multiple sources.

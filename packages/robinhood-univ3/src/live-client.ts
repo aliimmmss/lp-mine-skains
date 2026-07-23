@@ -11,6 +11,8 @@ const poolAbi = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
   'function tickSpacing() view returns (int24)',
   'function liquidity() view returns (uint128)',
+  'function feeGrowthGlobal0X128() view returns (uint256)',
+  'function feeGrowthGlobal1X128() view returns (uint256)',
 ])
 
 const tokenAbi = parseAbi(['function symbol() view returns (string)', 'function decimals() view returns (uint8)'])
@@ -55,7 +57,7 @@ export function createViemReadClient(publicClient: PublicClient): UniswapV3ReadC
     },
 
     async readPoolState(poolAddress): Promise<PoolState> {
-      const [slot0, tickSpacing, activeLiquidity] = await Promise.all([
+      const [slot0, tickSpacing, activeLiquidity, feeGrowthGlobal0X128, feeGrowthGlobal1X128] = await Promise.all([
         publicClient.readContract({
           address: poolAddress,
           abi: poolAbi,
@@ -71,6 +73,16 @@ export function createViemReadClient(publicClient: PublicClient): UniswapV3ReadC
           abi: poolAbi,
           functionName: 'liquidity',
         }),
+        publicClient.readContract({
+          address: poolAddress,
+          abi: poolAbi,
+          functionName: 'feeGrowthGlobal0X128',
+        }),
+        publicClient.readContract({
+          address: poolAddress,
+          abi: poolAbi,
+          functionName: 'feeGrowthGlobal1X128',
+        }),
       ])
 
       return {
@@ -78,6 +90,8 @@ export function createViemReadClient(publicClient: PublicClient): UniswapV3ReadC
         tick: slot0[1],
         tickSpacing,
         activeLiquidity,
+        feeGrowthGlobal0X128,
+        feeGrowthGlobal1X128,
       }
     },
 

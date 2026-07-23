@@ -6,3 +6,13 @@ coverage/
 !.env.example
 *.tsbuildinfo
 .DS_Store
+
+# local data and secrets
+data/
+.rpc-url
+
+# vendored tool clones
+/rtk/
+/skills/
+/ponytail/
+/i-have-adhd/

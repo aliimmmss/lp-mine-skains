@@ -2,7 +2,18 @@ import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      // vendored tool clones, not project code
+      'rtk/**',
+      'skills/**',
+      'ponytail/**',
+      'i-have-adhd/**',
+    ],
+  },
   js.configs.recommended,
   {
     files: ['**/*.ts'],

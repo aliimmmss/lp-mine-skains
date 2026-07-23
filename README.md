@@ -170,6 +170,6 @@ See [Current project status](docs/CURRENT_STATUS.md) for the explicit implemente
 
 **M0, the Robinhood portion of M1, M2 analysis, and M3 read-only monitoring are operational. M4 readiness, authority evidence, paper mode, simulation-policy design, offline sanitized evidence ingestion, operator-review reporting, review-record invalidation, immutable typed review intents, deliberate offline confirmation records, confirmation lifecycle invalidation, deterministic offline final-review summaries, and static read-only review documents are complete, but all execution capabilities remain disabled. No live execution code exists.**
 
-The historical factory deployment/bootstrap block is not yet pinned, so historical scans must use a separately verified start block rather than a guessed value.
+The historical factory deployment block is pinned as `8930` with log- and receipt-based evidence in [docs/ROBINHOOD_REGISTRY_EVIDENCE.md](docs/ROBINHOOD_REGISTRY_EVIDENCE.md); canonical WETH/USDG pool creation blocks are recorded there as well.
 
 This software is experimental and may result in total loss of funds. Nothing in this repository is financial advice.

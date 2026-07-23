@@ -30,6 +30,8 @@ type ObservationRow = {
   tick: number
   tick_spacing: number
   active_liquidity: string
+  fee_growth_global0_x128: string | null
+  fee_growth_global1_x128: string | null
   quality: string
   warnings_json: string
 }
@@ -39,7 +41,8 @@ const OBSERVATION_COLUMNS = `
   token0_address, token0_symbol, token0_decimals,
   token1_address, token1_symbol, token1_decimals,
   fee_tier, sqrt_price_x96, tick, tick_spacing,
-  active_liquidity, quality, warnings_json
+  active_liquidity, fee_growth_global0_x128, fee_growth_global1_x128,
+  quality, warnings_json
 `
 
 export class SqlitePoolObservationStore {
@@ -67,6 +70,8 @@ export class SqlitePoolObservationStore {
         tick INTEGER NOT NULL,
         tick_spacing INTEGER NOT NULL,
         active_liquidity TEXT NOT NULL,
+        fee_growth_global0_x128 TEXT,
+        fee_growth_global1_x128 TEXT,
         quality TEXT NOT NULL CHECK (quality IN ('complete', 'partial', 'stale')),
         warnings_json TEXT NOT NULL,
         PRIMARY KEY (pool_address, block_number)
@@ -78,6 +83,21 @@ export class SqlitePoolObservationStore {
       CREATE INDEX IF NOT EXISTS pool_observations_pool_time
       ON pool_observations(pool_address, observed_at);
     `)
+    this.#migrateFeeGrowthColumns()
+  }
+
+  /** Adds fee growth columns to databases created before they existed. Idempotent. */
+  #migrateFeeGrowthColumns(): void {
+    const columns = this.#database.prepare('SELECT name FROM pragma_table_info(?)').all('pool_observations') as {
+      name: string
+    }[]
+    const names = new Set(columns.map((column) => column.name))
+    if (!names.has('fee_growth_global0_x128')) {
+      this.#database.exec('ALTER TABLE pool_observations ADD COLUMN fee_growth_global0_x128 TEXT')
+    }
+    if (!names.has('fee_growth_global1_x128')) {
+      this.#database.exec('ALTER TABLE pool_observations ADD COLUMN fee_growth_global1_x128 TEXT')
+    }
   }
 
   saveSnapshots(snapshots: readonly PoolSnapshot[]): number {
@@ -89,8 +109,9 @@ export class SqlitePoolObservationStore {
         token0_address, token0_symbol, token0_decimals,
         token1_address, token1_symbol, token1_decimals,
         fee_tier, sqrt_price_x96, tick, tick_spacing,
-        active_liquidity, quality, warnings_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        active_liquidity, fee_growth_global0_x128, fee_growth_global1_x128,
+        quality, warnings_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(pool_address, block_number) DO UPDATE SET
         chain_id = excluded.chain_id,
         observed_at = excluded.observed_at,
@@ -105,6 +126,8 @@ export class SqlitePoolObservationStore {
         tick = excluded.tick,
         tick_spacing = excluded.tick_spacing,
         active_liquidity = excluded.active_liquidity,
+        fee_growth_global0_x128 = excluded.fee_growth_global0_x128,
+        fee_growth_global1_x128 = excluded.fee_growth_global1_x128,
         quality = excluded.quality,
         warnings_json = excluded.warnings_json
     `)
@@ -128,6 +151,8 @@ export class SqlitePoolObservationStore {
           snapshot.value.tick,
           snapshot.value.tickSpacing,
           snapshot.value.activeLiquidity.toString(),
+          snapshot.value.feeGrowthGlobal0X128?.toString() ?? null,
+          snapshot.value.feeGrowthGlobal1X128?.toString() ?? null,
           snapshot.quality,
           JSON.stringify(snapshot.warnings),
         )
@@ -265,6 +290,8 @@ function rowToSnapshot(row: ObservationRow): PoolSnapshot {
       tick: row.tick,
       tickSpacing: row.tick_spacing,
       activeLiquidity: BigInt(row.active_liquidity),
+      ...(row.fee_growth_global0_x128 != null ? { feeGrowthGlobal0X128: BigInt(row.fee_growth_global0_x128) } : {}),
+      ...(row.fee_growth_global1_x128 != null ? { feeGrowthGlobal1X128: BigInt(row.fee_growth_global1_x128) } : {}),
     },
     block: {
       chainId: row.chain_id,
