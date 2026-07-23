@@ -195,15 +195,17 @@ function validConfirmationResult() {
   })
 }
 
-function evaluateValidLifecycle(overrides: Partial<{
-  intentResult: unknown
-  confirmationResult: unknown
-  report: unknown
-  currentState: unknown
-  buildCommit: unknown
-  generatedAt: unknown
-  assessedAt: unknown
-}> = {}) {
+function evaluateValidLifecycle(
+  overrides: Partial<{
+    intentResult: unknown
+    confirmationResult: unknown
+    report: unknown
+    currentState: unknown
+    buildCommit: unknown
+    generatedAt: unknown
+    assessedAt: unknown
+  }> = {},
+) {
   return evaluateWethAllowanceRevocationReviewConfirmationLifecycle({
     intentResult: overrides.intentResult ?? validIntentResult(),
     confirmationResult: overrides.confirmationResult ?? validConfirmationResult(),

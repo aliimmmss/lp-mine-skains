@@ -154,6 +154,15 @@ export type {
   WethAllowanceRevocationReviewConfirmationInput,
   WethAllowanceRevocationReviewConfirmationResult,
 } from './weth-allowance-revocation-review-confirmation.js'
+export {
+  WETH_ALLOWANCE_REVOCATION_REVIEW_CONFIRMATION_LIFECYCLE_VERSION,
+  evaluateWethAllowanceRevocationReviewConfirmationLifecycle,
+} from './weth-allowance-revocation-review-confirmation-lifecycle.js'
+export type {
+  WethAllowanceRevocationReviewConfirmationLifecycleCheck,
+  WethAllowanceRevocationReviewConfirmationLifecycleInput,
+  WethAllowanceRevocationReviewConfirmationLifecycleResult,
+} from './weth-allowance-revocation-review-confirmation-lifecycle.js'
 export { ROBINHOOD_WETH_CONTROL_EVIDENCE, verifyRobinhoodWethControlEvidence } from './weth-control-evidence.js'
 export type {
   WethControlCheck,
