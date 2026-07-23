@@ -34,6 +34,16 @@ const PROHIBITED_ELEMENTS = [
   'audio',
   'canvas',
   'svg',
+  'base',
+  'area',
+  'details',
+  'summary',
+  'dialog',
+  'menu',
+  'fieldset',
+  'label',
+  'option',
+  'optgroup',
 ] as const
 
 const PROHIBITED_SCHEMES = ['http:', 'https:', 'javascript:', 'data:', 'blob:', 'file:', 'ftp:'] as const
@@ -302,7 +312,9 @@ function containsProhibitedElement(html: string): boolean {
 function containsProhibitedAttribute(html: string): boolean {
   return (
     /\son[a-z0-9_-]+\s*=/i.test(html) ||
-    /\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style)\s*=/i.test(html)
+    /\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style|contenteditable|tabindex|autofocus|popover|popovertarget|download|draggable|target|usemap)\s*=/i.test(
+      html,
+    )
   )
 }
 

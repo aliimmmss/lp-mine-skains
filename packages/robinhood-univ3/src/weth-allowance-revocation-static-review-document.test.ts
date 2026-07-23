@@ -249,7 +249,9 @@ describe('static read-only WETH allowance-revocation review document', () => {
       /<\s*(script|style|link|img|iframe|object|embed|form|button|input|select|textarea|a|video|audio|canvas|svg)(?:\s|>)/i,
     )
     expect(html).not.toMatch(/\son[a-z0-9_-]+\s*=/i)
-    expect(html).not.toMatch(/\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style)\s*=/i)
+    expect(html).not.toMatch(
+      /\s(?:href|src|srcset|action|formaction|poster|cite|background|ping|srcdoc|style|contenteditable|tabindex|autofocus|popover|popovertarget|download|draggable|target|usemap)\s*=/i,
+    )
     expect(html).not.toMatch(/(?:https?:|javascript:|data:|blob:|file:|ftp:)/i)
     expect(result.browserInteractionAuthorized).toBe(false)
     expect(result.transactionBuildAuthorized).toBe(false)
