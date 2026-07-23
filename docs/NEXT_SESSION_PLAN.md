@@ -4,10 +4,13 @@ Continuation plan for the LP Mine project. Read this top to bottom before writin
 
 ## Progress log
 
-- **Done (commit `3777f91`):** Task 1 core — `computeFeeYield` in `packages/core/src/fee-yield.ts` and the `pools:fees` worker command (`apps/worker/src/pools-fees.ts`). Ranks the four fee tiers by combined daily fees per unit liquidity from `feeGrowthGlobal` deltas. Verified against live chain data (recovered ETH price consistency). Documented in `ROBINHOOD_WORKER.md`. 219 tests pass.
-- **Done (commit pending in this session):** Task 2 — `docs/DEPOSIT_RUNBOOK.md`.
-- **Deferred:** Task 1 part 3 (time-in-range) — needs more accumulated observations than the 2 samples currently local; build once the cloud job has a day+ of tick history. Task 1 part 4 (Telegram fee summary) — optional. 
-- **Next focus:** Task 3 (post-deposit monitoring) once the user opens a position; otherwise let cloud data accumulate and re-run `pools:fees` for a steadier ranking.
+Deposit-readiness milestone COMPLETE (2026-07-23). All analysis and delivery tooling is built and green (226 tests). Remaining work is post-deposit and user-action-gated.
+
+- **Done (`3777f91`):** Task 1.1/1.2 — `computeFeeYield` + `pools:fees`. Ranks the four fee tiers by combined daily fees per unit liquidity from `feeGrowthGlobal` deltas. Verified against live chain data.
+- **Done (`2c85473`):** Task 2 — `docs/DEPOSIT_RUNBOOK.md`.
+- **Done (`1e4a7f9`):** Task 1.3 — `computeTickOccupancy` + occupancy in `pools:fees` (range-width signal: fraction of observed ticks within ±1/2/5/10% bands). Differentiates as cloud tick history accumulates.
+- **Done (`6db21e2`):** Task 1.4 — `fees:notify:telegram` command + daily `Telegram fee digest` workflow (read-only consumer of the monitor cache; daily cron avoids repeated-message spam).
+- **Remaining — Task 3 (post-deposit, user-gated):** activates only after the user opens a position. The manual `position:fee-share` / `position:performance` / `position:history` commands already accept `LP_MINE_POSITION_*` params and work today. The small follow-up (whenever a real position exists): a daily position-summary Telegram job + an out-of-range alert, wired with the saved tick range / liquidity / NFT id from the mint (the runbook tells the user to record these).
 
 ## Where the project stands
 
