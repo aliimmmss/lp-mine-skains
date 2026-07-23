@@ -85,6 +85,9 @@ describe('buildPoolFeeReport', () => {
     expect(pool.status).toBe('complete')
     expect(pool.windowSeconds).toBe(43_200)
     expect(pool.sampleCount).toBe(3)
+    // occupancy is computed from all snapshots at the current (latest) tick 0
+    expect(pool.occupancy?.sampleCount).toBe(3)
+    expect(pool.occupancy?.bands.find((band) => band.label === '±1%')?.observationsInRange).toBe(3)
     // Δfg0=Q128 over 43200s, REF 1e18 -> 1e18 token0/window -> 2e18/day
     expect(pool.dailyFeesToken0Decimal).toBe('2000000000000000000.00000000')
     expect(pool.dailyFeesCombinedInToken1Decimal).toBe('6000000000000000000.00000000')

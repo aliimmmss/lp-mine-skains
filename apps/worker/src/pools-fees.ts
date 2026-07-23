@@ -1,4 +1,10 @@
-import { computeFeeYield, type ExactRatio, type FeeGrowthSample } from '@lp-mine/core'
+import {
+  computeFeeYield,
+  computeTickOccupancy,
+  type ExactRatio,
+  type FeeGrowthSample,
+  type TickOccupancy,
+} from '@lp-mine/core'
 import { ROBINHOOD_WETH_USDG_POOLS, SqlitePoolObservationStore, type PoolSnapshot } from '@lp-mine/robinhood-univ3'
 import { pathToFileURL } from 'node:url'
 
@@ -30,6 +36,7 @@ export type PoolFeeEntry = {
   dailyFeesToken0Decimal: string | null
   dailyFeesToken1Decimal: string | null
   dailyFeesCombinedInToken1Decimal: string | null
+  occupancy: TickOccupancy | null
   warnings: readonly string[]
 }
 
@@ -68,12 +75,18 @@ function analyzePoolFees(
     .filter((pair): pair is { snapshot: PoolSnapshot; sample: FeeGrowthSample } => pair.sample !== null)
     .sort((left, right) => left.sample.observedAt.getTime() - right.sample.observedAt.getTime())
 
+  const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1]! : null
   const base = {
     pair: snapshots[0] ? `${snapshots[0].value.token0.symbol}/${snapshots[0].value.token1.symbol}` : null,
     referenceLiquidity: config.referenceLiquidity.toString(),
-    currentTick: snapshots.length > 0 ? snapshots[snapshots.length - 1]!.value.tick : null,
-    currentActiveLiquidity:
-      snapshots.length > 0 ? snapshots[snapshots.length - 1]!.value.activeLiquidity.toString() : null,
+    currentTick: latest ? latest.value.tick : null,
+    currentActiveLiquidity: latest ? latest.value.activeLiquidity.toString() : null,
+    occupancy: latest
+      ? computeTickOccupancy(
+          snapshots.map((snapshot) => snapshot.value.tick),
+          latest.value.tick,
+        )
+      : null,
   }
 
   const insufficient = (warning: string): { entry: Omit<PoolFeeEntry, 'feeTier' | 'poolAddress'>; rank: null } => ({

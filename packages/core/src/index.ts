@@ -62,6 +62,8 @@ export type { LpVsHodlAnalysis, LpVsHodlInput, PositionInventory } from './lp-vs
 export { analyzePool, compareFeeTierPools, formatRatio, sqrtPriceX96ToToken1PerToken0 } from './pool-analysis.js'
 export { computeFeeYield } from './fee-yield.js'
 export type { FeeGrowthSample, FeeYield, FeeYieldOptions } from './fee-yield.js'
+export { computeTickOccupancy, percentToTickHalfWidth } from './tick-occupancy.js'
+export type { TickOccupancy, TickOccupancyBand } from './tick-occupancy.js'
 export type {
   ExactRatio,
   PoolAnalysis,
