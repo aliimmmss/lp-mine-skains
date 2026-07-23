@@ -1,8 +1,36 @@
+import { buildDepositPlan, type DepositPlan } from '@lp-mine/core'
+import { ROBINHOOD_WETH_USDG_POOLS } from '@lp-mine/robinhood-univ3'
 import { pathToFileURL } from 'node:url'
 import { buildMonitorHealthReport, type MonitorHealthReport } from './monitor-health.js'
 import { readMonitorHealthConfig } from './monitor-health-config.js'
 import { buildPoolFeeReport, type PoolFeeReport } from './pools-fees.js'
 import { buildOpportunityReport, type OpportunityReport } from './pools-opportunities.js'
+
+// Canonical pinned pair decimals (verified in the registry smoke check).
+const WETH_DECIMALS = 18
+const USDG_DECIMALS = 6
+const DEFAULT_RANGE_PERCENT = 10
+
+/** Deposit plan for the highest-ranked deposit-ready pinned pool, if any. */
+function buildTopDepositPlan(fees: PoolFeeReport, rangePercent: number): DepositPlan | null {
+  const top = fees.pools.find((pool) => pool.status === 'complete' && pool.currentTick !== null)
+  if (!top || top.currentTick === null) return null
+  const registryPool = ROBINHOOD_WETH_USDG_POOLS.find((pool) => pool.feeTier === top.feeTier)
+  if (!registryPool) return null
+  return buildDepositPlan(
+    {
+      poolAddress: top.poolAddress,
+      feeTier: top.feeTier,
+      tickSpacing: registryPool.tickSpacing,
+      currentTick: top.currentTick,
+      token0Symbol: 'WETH',
+      token1Symbol: 'USDG',
+      token0Decimals: WETH_DECIMALS,
+      token1Decimals: USDG_DECIMALS,
+    },
+    { rangePercent },
+  )
+}
 
 const DEFAULT_FEE_WINDOW_SECONDS = 86_400
 const DEFAULT_REFERENCE_LIQUIDITY = 10n ** 18n
@@ -17,6 +45,7 @@ export type SiteData = {
   generatedAt: string
   health: MonitorHealthReport
   fees: PoolFeeReport
+  depositPlan: DepositPlan | null
   opportunities: OpportunityReport | { error: string } | null
 }
 
@@ -33,7 +62,8 @@ export function buildSiteData(environment: NodeJS.ProcessEnv = process.env, now 
     },
     now,
   )
-  return { schemaVersion: 1, generatedAt: now.toISOString(), health, fees, opportunities: null }
+  const depositPlan = buildTopDepositPlan(fees, DEFAULT_RANGE_PERCENT)
+  return { schemaVersion: 1, generatedAt: now.toISOString(), health, fees, depositPlan, opportunities: null }
 }
 
 /** Full snapshot including the best-effort third-party opportunity feed. */

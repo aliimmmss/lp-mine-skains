@@ -35,6 +35,20 @@ const health = data.health as {
 }
 const fees = data.fees as { configuredWindowSeconds: number; referenceLiquidity: string; pools: FeePool[] }
 
+type DepositPlan = {
+  poolAddress: string
+  feeTier: number
+  rangePercent: number
+  tickLower: number
+  tickUpper: number
+  currentPriceToken1PerToken0: string
+  priceLowerToken1PerToken0: string
+  priceUpperToken1PerToken0: string
+  pair: string
+}
+const depositPlan = (data.depositPlan ?? null) as DepositPlan | null
+const uniswapCreateUrl = 'https://app.uniswap.org/positions/create'
+
 type Opportunity = {
   name: string
   address: string
@@ -193,6 +207,74 @@ const favicon =
               <p class="mt-1 text-pretty text-xs text-neutral-500">
                 Fee yield needs at least two fee-growth samples per pool. Check back after the monitor
                 has run for a day.
+              </p>
+            </div>
+          )
+        }
+      </section>
+
+      <section class="mb-10">
+        <h2 class="mb-1 text-sm font-medium text-neutral-100">Deposit plan</h2>
+        {
+          depositPlan ? (
+            <div class="rounded-lg border border-neutral-800 p-4">
+              <p class="mb-3 text-pretty text-xs text-neutral-500">
+                Computed for the top-ranked pinned pool at ±{depositPlan.rangePercent}% around the current
+                price. Prepares the exact numbers only — you review and sign in your own wallet. Confirm
+                the pool address against the registry evidence, and wait for HEALTHY data before acting.
+              </p>
+              <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
+                <div>
+                  <dt class="text-xs text-neutral-500">Pair · tier</dt>
+                  <dd class="tabular-nums text-neutral-200">
+                    {depositPlan.pair} · {depositPlan.feeTier / 10_000}%
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-neutral-500">Price range (USDG per WETH)</dt>
+                  <dd class="font-mono tabular-nums text-neutral-100">
+                    {depositPlan.priceLowerToken1PerToken0} – {depositPlan.priceUpperToken1PerToken0}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-neutral-500">Current price</dt>
+                  <dd class="font-mono tabular-nums text-neutral-400">
+                    {depositPlan.currentPriceToken1PerToken0}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-neutral-500">Tick range</dt>
+                  <dd class="font-mono tabular-nums text-neutral-400">
+                    {depositPlan.tickLower} / {depositPlan.tickUpper}
+                  </dd>
+                </div>
+                <div class="col-span-2 sm:col-span-3">
+                  <dt class="text-xs text-neutral-500">Pool address (verify)</dt>
+                  <dd class="break-all font-mono text-xs text-neutral-400">{depositPlan.poolAddress}</dd>
+                </div>
+              </dl>
+              <ol class="mt-4 list-decimal space-y-1 pl-5 text-xs text-neutral-400">
+                <li>Open the Uniswap create page on Robinhood Chain (chain 4663).</li>
+                <li>Select the {depositPlan.pair} pair at the {depositPlan.feeTier / 10_000}% fee tier.</li>
+                <li>Set the price range to the bounds above.</li>
+                <li>Enter your deposit amount — start tiny.</li>
+                <li>Review the approval and mint, then sign in your wallet.</li>
+              </ol>
+              <a
+                href={uniswapCreateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-4 inline-block rounded border border-neutral-700 px-3 py-1 text-xs text-neutral-200 hover:border-neutral-500"
+              >
+                Open Uniswap create page
+              </a>
+            </div>
+          ) : (
+            <div class="rounded-lg border border-neutral-800 p-6">
+              <p class="text-pretty text-sm text-neutral-400">No deposit-ready pool yet.</p>
+              <p class="mt-1 text-pretty text-xs text-neutral-500">
+                A plan appears once a pinned pool has complete fee data. Let the monitor accumulate a day
+                of observations first.
               </p>
             </div>
           )

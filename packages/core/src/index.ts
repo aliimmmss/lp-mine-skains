@@ -64,6 +64,8 @@ export { computeFeeYield } from './fee-yield.js'
 export type { FeeGrowthSample, FeeYield, FeeYieldOptions } from './fee-yield.js'
 export { computeTickOccupancy, percentToTickHalfWidth } from './tick-occupancy.js'
 export type { TickOccupancy, TickOccupancyBand } from './tick-occupancy.js'
+export { buildDepositPlan } from './deposit-plan.js'
+export type { DepositPlan, DepositPlanInput } from './deposit-plan.js'
 export { OPPORTUNITY_CRITERIA, rankOpportunities, scoreOpportunity } from './opportunity.js'
 export type { OpportunityPool, ScoredOpportunity, VolumeTrend } from './opportunity.js'
 export type {
